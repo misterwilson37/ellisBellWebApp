@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Bell Web App</title>
+    <!-- Using Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Using Tone.js for web audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Styles for Admin Controls */
+        /* Hide admin controls and shared delete buttons by default */
+        .admin-control, #bell-schedule-list .delete-btn {
+            display: none;
+        }
+        /* When body has .admin-mode, show them */
+        body.admin-mode .admin-control {
+            display: flex; /* The form was flex */
+        }
+        body.admin-mode #bell-schedule-list .delete-btn {
+            display: inline-block; /* The buttons were inline */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+    <!-- Audio Start Overlay -->
+    <div id="audio-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <button id="start-audio-btn" class="px-8 py-4 bg-blue-600 text-white font-bold text-2xl rounded-lg shadow-lg hover:bg-blue-700 transition-colors">
+            Click to Start School Bell
+        </button>
+    </div>
+
+    <!-- Admin Password Modal -->
+    <div id="admin-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden">
+        <div class="bg-white p-8 rounded-lg shadow-xl">
+            <h3 class="text-xl font-medium mb-4">Admin Access</h3>
+            <label for="admin-password" class="block text-sm font-medium text-gray-700">Password</label>
+            <input type="password" id="admin-password" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p id="admin-error" class="text-red-500 text-sm mt-2 hidden">Incorrect password.</p>
+            <div class="mt-6 flex justify-end gap-3">
+                <button id="admin-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+                <button id="admin-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="container mx-auto max-w-2xl p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-700">School Bell</h1>
+            <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
+            <p class="text-sm text-gray-500 mt-2">Your User ID (for reference): <code id="userIdDisplay" class="bg-gray-200 px-2 py-1 rounded">...</code></p>
+        </header>
+
+        <!-- Live Clock -->
+        <div class="bg-white p-6 md:p-10 rounded-xl shadow-md mb-8">
+            <div id="live-clock" class="text-6xl md:text-8xl font-bold text-center text-gray-800 tabular-nums">
+                00:00:00
+            </div>
+            <div class="text-center text-gray-500 text-lg mt-2">
+                Status: <span id="status-message" class="font-medium text-gray-700">Initializing...</span>
+            </div>
+            <div class="text-center text-gray-500 text-sm mt-1">
+                Next Bell: <span id="next-bell-message" class="font-medium text-gray-700">--:--</span>
+            </div>
+        </div>
+
+        <!-- Schedule Selector -->
+        <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+            <div class="flex justify-between items-center mb-2">
+                <label for="schedule-selector" class="block text-lg font-medium text-gray-700">Active Shared Schedule</label>
+                <button id="admin-toggle" class="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 transition-colors">
+                    Toggle Admin
+                </button>
+            </div>
+            <select id="schedule-selector" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg">
+                <option value="">Loading schedules...</option>
+            </select>
+        </div>
+
+        <!-- Add New Bell Form (Admin) -->
+        <form id="add-bell-form" class="admin-control bg-white p-6 rounded-xl shadow-md mb-8 flex-col sm:flex-row sm:items-end gap-4">
+            <div class="flex-grow">
+                <label for="bell-time" class="block text-sm font-medium text-gray-700 mb-1">Time (24-hr) - SHARED</label>
+                <input type="time" id="bell-time" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex-grow">
+                <label for="bell-sound" class="block text-sm font-medium text-gray-700 mb-1">Sound</label>
+                <select id="bell-sound" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="Bell">Bell</option>
+                    <option value="Chime">Chime</option>
+                    <option value="Beep">Beep</option>
+                    <option value="Alarm">Alarm</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Add Shared Bell
+            </button>
+        </form>
+
+        <!-- Bell Schedule List (Shared) -->
+        <div>
+            <h2 id="schedule-title" class="text-2xl font-semibold mb-4">Current Schedule</h2>
+            <div id="bell-schedule-list" class="bg-white rounded-xl shadow-md overflow-hidden">
+                <!-- Bells will be injected here by JavaScript -->
+                <div class="p-8 text-center text-gray-500">
+                    Loading schedule...
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Bells (Local) -->
+        <div class="mt-12">
+            <h2 class="text-2xl font-semibold mb-4">My Custom Bells (This Browser Only)</h2>
+
+            <!-- Add Custom Bell Form -->
+            <form id="add-custom-bell-form" class="bg-white p-6 rounded-xl shadow-md mb-8 flex flex-col sm:flex-row sm:items-end gap-4">
+                <div class="flex-grow">
+                    <label for="custom-bell-time" class="block text-sm font-medium text-gray-700 mb-1">Time (24-hr)</label>
+                    <input type="time" id="custom-bell-time" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex-grow">
+                    <label for="custom-bell-sound" class="block text-sm font-medium text-gray-700 mb-1">Sound</label>
+                    <select id="custom-bell-sound" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="Bell">Bell</option>
+                        <option value="Chime">Chime</option>
+                        <option value="Beep">Beep</option>
+                        <option value="Alarm">Alarm</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full sm:w-auto px-6 py-2 bg-green-600 text-white font-medium rounded-lg shadow-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    Add Custom Bell
+                </button>
+            </form>
+
+            <!-- Custom Bell List -->
+            <div id="custom-bell-list" class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="p-8 text-center text-gray-500">
+                    No custom bells added.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase and App Logic -->
+    <script type="module">
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- DOM Elements ---
+        const audioOverlay = document.getElementById('audio-overlay');
+        const startAudioBtn = document.getElementById('start-audio-btn');
+        const clockElement = document.getElementById('live-clock');
+        const statusElement = document.getElementById('status-message');
+        const nextBellElement = document.getElementById('next-bell-message');
+        const addBellForm = document.getElementById('add-bell-form');
+        const timeInput = document.getElementById('bell-time');
+        const soundInput = document.getElementById('bell-sound');
+        const bellListElement = document.getElementById('bell-schedule-list');
+        const userIdElement = document.getElementById('userIdDisplay');
+        const scheduleSelector = document.getElementById('schedule-selector');
+        const scheduleTitle = document.getElementById('schedule-title');
+        const adminToggleBtn = document.getElementById('admin-toggle');
+        const adminModal = document.getElementById('admin-modal');
+        const adminPasswordInput = document.getElementById('admin-password');
+        const adminSubmitBtn = document.getElementById('admin-submit');
+        const adminCancelBtn = document.getElementById('admin-cancel');
+        const adminError = document.getElementById('admin-error');
+        const addCustomBellForm = document.getElementById('add-custom-bell-form');
+        const customTimeInput = document.getElementById('custom-bell-time');
+        const customSoundInput = document.getElementById('custom-bell-sound');
+        const customBellListElement = document.getElementById('custom-bell-list');
+
+        // --- App State ---
+        let db, auth;
+        let userId;
+        let localSchedule = []; // Holds array of SHARED { time, sound }
+        let customBells = []; // Holds array of CUSTOM { time, sound }
+        let scheduleRef; // Firestore document reference TO THE ACTIVE SCHEDULE
+        let schedulesCollectionRef; // Reference to the collection of all schedules
+        // let appStateRef; // Reference to the global app state (e.g., active schedule)
+        let allSchedules = []; // Array of { id, name }
+        let activeScheduleId = null;
+        let activeScheduleListenerUnsubscribe = null; // Function to stop listening to old schedule
+        let synths = {}; // To hold Tone.js synthesizers
+        let lastBellRingTime = null; // To prevent duplicate rings
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'school-bell-default';
+
+        // --- Default Schedules (for seeding) ---
+        const SCHEDULE_DEFAULTS = [
+            { id: "6th-grade-a", name: "6th Grade A" },
+            { id: "6th-grade-b", name: "6th Grade B" },
+            { id: "7th-grade-a", name: "7th Grade A" },
+            { id: "7th-grade-b", name: "7th Grade B" },
+            { id: "8th-grade", name: "8th Grade" },
+            { id: "related-arts-a", name: "Related Arts A" },
+            { id: "related-arts-b", name: "Related Arts B" },
+        ];
+
+        // --- Audio Setup (Tone.js) ---
+        function setupSynths() {
+            // Using .toDestination() connects the synth to the speakers
+            synths['Bell'] = new Tone.MetalSynth({
+                frequency: 200,
+                envelope: { attack: 0.001, decay: 0.4, release: 0.2 },
+                harmonicity: 5.1,
+                modulationIndex: 32,
+                resonance: 4000,
+                octaves: 1.5
+            }).toDestination();
+
+            synths['Chime'] = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.01, decay: 0.5, sustain: 0.1, release: 1 }
+            }).toDestination();
+
+            synths['Beep'] = new Tone.Synth({
+                oscillator: { type: 'square' },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.05 }
+            }).toDestination();
+
+            synths['Alarm'] = new Tone.MonoSynth({
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.1, decay: 0.2, release: 0.1 }
+            }).toDestination();
+        }
+
+        function playBell(soundName) {
+            if (!synths[soundName]) {
+                console.warn(`Sound '${soundName}' not found.`);
+                return;
+            }
+
+            const now = Tone.now();
+            try {
+                switch (soundName) {
+                    case 'Bell':
+                        synths['Bell'].triggerAttackRelease('C4', '0.5', now);
+                        synths['Bell'].triggerAttackRelease('G4', '0.5', now + 0.3);
+                        break;
+                    case 'Chime':
+                        synths['Chime'].triggerAttackRelease('G5', '0.8', now);
+                        synths['Chime'].triggerAttackRelease('E6', '0.8', now + 0.5);
+                        break;
+                    case 'Beep':
+                        synths['Beep'].triggerAttackRelease('A5', '0.1', now);
+                        break;
+                    case 'Alarm':
+                        // A quick "brrrring"
+                        synths['Alarm'].triggerAttackRelease("C5", "0.1", now);
+                        synths['Alarm'].triggerAttackRelease("C5", "0.1", now + 0.15);
+                        synths['Alarm'].triggerAttackRelease("C5", "0.1", now + 0.3);
+                        break;
+                }
+                statusElement.textContent = `Ringing: ${soundName}`;
+            } catch (error) {
+                console.error("Error playing sound:", error);
+            }
+        }
+
+        // --- Clock and Bell Logic ---
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            const currentTimeHHMM = `${hours}:${minutes}`;
+            const currentTimeHHMMSS = `${hours}:${minutes}:${seconds}`;
+
+            clockElement.textContent = currentTimeHHMMSS;
+
+            // Check if a bell should ring
+            // --- MODIFIED: Check both shared and custom schedules ---
+            const bellToRing = localSchedule.find(bell => bell.time === currentTimeHHMM) ||
+                               customBells.find(bell => bell.time === currentTimeHHMM);
+            
+            if (bellToRing && lastBellRingTime !== currentTimeHHMM) {
+                playBell(bellToRing.sound);
+                lastBellRingTime = currentTimeHHMM; // Ensure it only rings once per minute
+            }
+            
+            // Reset "lastBell" flag when the minute changes
+            if (lastBellRingTime && lastBellRingTime !== currentTimeHHMM) {
+                 lastBellRingTime = null;
+                 statusElement.textContent = "Monitoring...";
+            }
+
+            // Update next bell time
+            updateNextBellMessage(currentTimeHHMM);
+
+            requestAnimationFrame(updateClock); // Loop
+        }
+
+        function updateNextBellMessage(currentTimeHHMM) {
+            // --- MODIFIED: Combine shared and custom bells for "Next Bell"
+            const allBells = [...localSchedule, ...customBells];
+            const sortedBells = allBells.sort((a, b) => a.time.localeCompare(b.time));
+            const nextBell = sortedBells.find(bell => bell.time > currentTimeHHMM);
+            
+            if (nextBell) {
+                nextBellElement.textContent = `${nextBell.time} (${nextBell.sound})`;
+            } else if (sortedBells.length > 0) {
+                // Wrap to tomorrow
+                nextBellElement.textContent = `Tomorrow ${sortedBells[0].time} (${sortedBells[0].sound})`;
+            } else {
+                nextBellElement.textContent = "--:--";
+            }
+        }
+
+
+        // --- UI Rendering ---
+        function renderSchedule() {
+            // Sort schedule by time
+            localSchedule.sort((a, b) => a.time.localeCompare(b.time));
+
+            // Update title
+            const activeSchedule = allSchedules.find(s => s.id === activeScheduleId);
+            scheduleTitle.textContent = activeSchedule ? `${activeSchedule.name} Schedule` : 'Current Schedule';
+
+            if (localSchedule.length === 0) {
+                bellListElement.innerHTML = `<div class="p-8 text-center text-gray-500">No bells scheduled. Add one above.</div>`;
+                return;
+            }
+
+            bellListElement.innerHTML = ""; // Clear list
+            localSchedule.forEach((bell, index) => {
+                const bellDiv = document.createElement('div');
+                bellDiv.className = "flex items-center justify-between p-4 border-b border-gray-200 last:border-b-0";
+                
+                bellDiv.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="text-xl font-mono bg-gray-100 px-3 py-1 rounded">${bell.time}</span>
+                        <span class="text-lg font-medium text-gray-800">${bell.sound}</span>
+                    </div>
+                    <button data-index="${index}" class="delete-btn text-red-500 hover:text-red-700 font-medium transition-colors">
+                        Delete
+                    </button>
+                `;
+                bellListElement.appendChild(bellDiv);
+            });
+        }
+
+        function renderCustomBellSchedule() {
+            // Sort schedule by time
+            customBells.sort((a, b) => a.time.localeCompare(b.time));
+
+            if (customBells.length === 0) {
+                customBellListElement.innerHTML = `<div class="p-8 text-center text-gray-500">No custom bells added.</div>`;
+                return;
+            }
+
+            customBellListElement.innerHTML = ""; // Clear list
+            customBells.forEach((bell, index) => {
+                const bellDiv = document.createElement('div');
+                bellDiv.className = "flex items-center justify-between p-4 border-b border-gray-200 last:border-b-0";
+                
+                bellDiv.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="text-xl font-mono bg-gray-100 px-3 py-1 rounded">${bell.time}</span>
+                        <span class="text-lg font-medium text-gray-800">${bell.sound}</span>
+                    </div>
+                    <button data-index="${index}" class="delete-custom-btn text-red-500 hover:text-red-700 font-medium transition-colors">
+                        Delete
+                    </button>
+                `;
+                customBellListElement.appendChild(bellDiv);
+            });
+        }
+
+        function renderScheduleDropdown() {
+            scheduleSelector.innerHTML = ''; // Clear options
+            if (allSchedules.length === 0) {
+                scheduleSelector.innerHTML = '<option value="">Loading schedules...</option>';
+                return;
+            }
+
+            allSchedules.forEach(schedule => {
+                const option = document.createElement('option');
+                option.value = schedule.id;
+                option.textContent = schedule.name;
+                if (schedule.id === activeScheduleId) {
+                    option.selected = true;
+                }
+                scheduleSelector.appendChild(option);
+            });
+        }
+
+        // --- Firestore Logic ---
+        async function updateActiveScheduleBells() {
+            if (!scheduleRef) return;
+            try {
+                // Use updateDoc to update just the bells array on the active schedule document
+                await updateDoc(scheduleRef, { bells: localSchedule });
+            } catch (error) {
+                console.error("Error updating Firestore schedule: ", error);
+            }
+        }
+
+        /**
+         * Creates the 7 default schedules if they don't exist.
+         */
+        async function checkAndSeedSchedules() {
+            const snapshot = await getDocs(schedulesCollectionRef);
+            if (snapshot.empty) {
+                console.log("No schedules found, seeding database...");
+                const batch = writeBatch(db);
+
+                // Add all 7 schedule documents
+                SCHEDULE_DEFAULTS.forEach(schedule => {
+                    const newScheduleRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', schedule.id);
+                    batch.set(newScheduleRef, { name: schedule.name, bells: [] });
+                });
+
+                // Set the active schedule to the first one
+                // batch.set(appStateRef, { activeScheduleId: SCHEDULE_DEFAULTS[0].id });
+                
+                await batch.commit();
+                console.log("Database seeded successfully.");
+            }
+        }
+        
+        /**
+         * Listens to the collection of all schedules to populate the dropdown.
+         */
+        function listenToSchedulesCollection() {
+            onSnapshot(schedulesCollectionRef, (snapshot) => {
+                allSchedules = [];
+                snapshot.forEach(doc => {
+                    allSchedules.push({ id: doc.id, ...doc.data() });
+                });
+                // Sort schedules by name
+                allSchedules.sort((a, b) => a.name.localeCompare(b.name));
+                renderScheduleDropdown();
+            }, (error) => {
+                console.error("Error listening to schedules collection:", error);
+            });
+        }
+
+        /**
+         * Listens to the currently active schedule document for its bells.
+         */
+        function listenToActiveScheduleDoc(scheduleId) {
+            // Unsubscribe from the old schedule listener, if it exists
+            if (activeScheduleListenerUnsubscribe) {
+                activeScheduleListenerUnsubscribe();
+            }
+
+            localSchedule = []; // Clear old data
+            renderSchedule(); // Render empty state
+            
+            if (!scheduleId) {
+                statusElement.textContent = "No schedule selected.";
+                return;
+            }
+            
+            // Create a new reference to the active schedule
+            scheduleRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', scheduleId);
+
+            // Subscribe to the new schedule
+            activeScheduleListenerUnsubscribe = onSnapshot(scheduleRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    localSchedule = docSnap.data().bells || [];
+                } else {
+                    // This might happen briefly if a schedule is deleted
+                    localSchedule = [];
+                }
+                renderSchedule();
+                statusElement.textContent = "Monitoring...";
+            }, (error) => {
+                console.error("Error listening to active schedule doc: ", error);
+                statusElement.textContent = "Connection error!";
+            });
+        }
+        
+        // --- Custom Bell Logic (LocalStorage) ---
+        function loadCustomBells() {
+            const bellsJSON = localStorage.getItem('schoolBell-customBells');
+            if (bellsJSON) {
+                customBells = JSON.parse(bellsJSON);
+            } else {
+                customBells = [];
+            }
+            renderCustomBellSchedule();
+        }
+
+        function saveCustomBells() {
+            localStorage.setItem('schoolBell-customBells', JSON.stringify(customBells));
+        }
+
+        // --- Admin Mode Logic ---
+        function toggleAdminMode(enable) {
+            if (enable) {
+                document.body.classList.add('admin-mode');
+                adminToggleBtn.textContent = 'Admin Mode: ON';
+                adminToggleBtn.classList.add('bg-blue-600', 'text-white');
+                adminToggleBtn.classList.remove('bg-gray-200', 'text-gray-800');
+            } else {
+                document.body.classList.remove('admin-mode');
+                adminToggleBtn.textContent = 'Toggle Admin';
+                adminToggleBtn.classList.remove('bg-blue-600', 'text-white');
+                adminToggleBtn.classList.add('bg-gray-200', 'text-gray-800');
+            }
+        }
+        
+        // --- Event Handlers ---
+        async function handleAddBell(e) {
+            e.preventDefault();
+            const time = timeInput.value;
+            const sound = soundInput.value;
+
+            if (!time) return;
+
+            // Check for duplicates
+            if (localSchedule.find(bell => bell.time === time)) {
+                statusElement.textContent = `A bell already exists at ${time}`;
+                return;
+            }
+
+            localSchedule.push({ time, sound });
+            renderSchedule(); // Optimistic update
+            await updateActiveScheduleBells(); // Push to cloud
+            
+            timeInput.value = ""; // Clear form
+        }
+        
+        async function handleDeleteBell(e) {
+            if (!e.target.classList.contains('delete-btn')) return;
+            
+            const index = parseInt(e.target.dataset.index, 10);
+            if (isNaN(index)) return;
+
+            localSchedule.splice(index, 1); // Remove from local array
+            renderSchedule(); // Optimistic update
+            await updateActiveScheduleBells(); // Push to cloud
+        }
+
+        async function handleAddCustomBell(e) {
+            e.preventDefault();
+            const time = customTimeInput.value;
+            const sound = customSoundInput.value;
+
+            if (!time) return;
+
+            // Check for duplicates
+            if (customBells.find(bell => bell.time === time)) {
+                statusElement.textContent = `A custom bell already exists at ${time}`;
+                return;
+            }
+
+            customBells.push({ time, sound });
+            saveCustomBells();
+            renderCustomBellSchedule();
+            
+            customTimeInput.value = ""; // Clear form
+        }
+        
+        async function handleDeleteCustomBell(e) {
+            if (!e.target.classList.contains('delete-custom-btn')) return;
+            
+            const index = parseInt(e.target.dataset.index, 10);
+            if (isNaN(index)) return;
+
+            customBells.splice(index, 1); // Remove from local array
+            saveCustomBells();
+            renderCustomBellSchedule();
+        }
+
+        async function handleScheduleChange(e) {
+            const newScheduleId = e.target.value;
+            if (newScheduleId && newScheduleId !== activeScheduleId) {
+                // Save the user's choice locally, not globally
+                localStorage.setItem('schoolBell-activeScheduleId', newScheduleId);
+                activeScheduleId = newScheduleId;
+                // Switch the listener to the new schedule
+                listenToActiveScheduleDoc(newScheduleId);
+            }
+        }
+
+       /**
+        * Loads the initial schedule on startup.
+        * Tries to load from localStorage, otherwise defaults to the first schedule.
+        */
+       async function loadAndSetInitialSchedule() {
+           const savedId = localStorage.getItem('schoolBell-activeScheduleId');
+           
+           // Get the list of schedules *once* just to validate
+           const snapshot = await getDocs(schedulesCollectionRef);
+           allSchedules = [];
+           snapshot.forEach(doc => {
+               allSchedules.push({ id: doc.id, ...doc.data() });
+           });
+           allSchedules.sort((a, b) => a.name.localeCompare(b.name));
+
+           // Check if the saved ID is still valid
+           const isValid = allSchedules.some(s => s.id === savedId);
+
+           if (isValid) {
+               activeScheduleId = savedId;
+           } else if (allSchedules.length > 0) {
+               activeScheduleId = allSchedules[0].id; // Default to first
+               localStorage.setItem('schoolBell-activeScheduleId', activeScheduleId); // Save default
+           } else {
+               activeScheduleId = null; // No schedules exist
+           }
+
+           renderScheduleDropdown(); // Render dropdown with correct selection
+           listenToActiveScheduleDoc(activeScheduleId); // Start listening to bell data
+        }
+
+        // --- Initialization ---
+        async function initialize() {
+            // 1. Initialize Firebase
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            setLogLevel('debug'); // Enable debug logging for firestore
+            
+            // 2. Sign in
+            try {
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase Auth Error:", error);
+                statusElement.textContent = "Auth Error. Check console.";
+                return;
+            }
+
+            // 3. Set up Auth listener
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    userIdElement.textContent = userId;
+
+                    // Define paths now that we have auth
+                    schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
+
+                    // Check if default schedules exist, create them if not
+                    await checkAndSeedSchedules();
+                    
+                    // Load the user's saved schedule (or a default)
+                    await loadAndSetInitialSchedule();
+
+                    // --- NEW: Load custom bells from localStorage ---
+                    loadCustomBells();
+
+                    // Now, start listening for changes to the *list* of schedules
+                    listenToSchedulesCollection();
+
+                } else {
+                    userId = null;
+                    userIdElement.textContent = "Not signed in";
+                }
+            });
+        }
+        
+        // --- Start the App ---
+
+        // Browsers require user interaction to start audio.
+        startAudioBtn.addEventListener('click', async () => {
+            try {
+                await Tone.start(); // Start the audio context
+                console.log("Audio Context Started");
+                
+                setupSynths(); // Init the synths
+                initialize(); // Init Firebase
+                updateClock(); // Start the live clock
+                
+                audioOverlay.style.display = 'none'; // Hide overlay
+            } catch (error) {
+                console.error("Error starting Tone.js:", error);
+                audioOverlay.innerHTML = `<div class="text-white text-2xl text-center">Sorry, audio could not be started.<br>Please refresh and try again.</div>`;
+            }
+        });
+
+        // Attach form/list listeners
+        addBellForm.addEventListener('submit', handleAddBell);
+        bellListElement.addEventListener('click', handleDeleteBell);
+        addCustomBellForm.addEventListener('submit', handleAddCustomBell);
+        customBellListElement.addEventListener('click', handleDeleteCustomBell);
+        scheduleSelector.addEventListener('change', handleScheduleChange);
+
+        // Admin Modal Listeners
+        adminToggleBtn.addEventListener('click', () => {
+            adminModal.classList.remove('hidden');
+            adminPasswordInput.value = '';
+            adminPasswordInput.focus();
+            adminError.classList.add('hidden');
+        });
+        adminCancelBtn.addEventListener('click', () => {
+            adminModal.classList.add('hidden');
+        });
+        adminSubmitBtn.addEventListener('click', () => {
+            const password = adminPasswordInput.value;
+            // --- Simple hardcoded password. THIS IS NOT SECURE. ---
+            // --- It just prevents accidental edits. ---
+            if (password === 'admin123') {
+                toggleAdminMode(true);
+                adminModal.classList.add('hidden');
+            } else {
+                adminError.classList.remove('hidden');
+            }
+        });
+
+    </script>
+</body>
+</html>
+
