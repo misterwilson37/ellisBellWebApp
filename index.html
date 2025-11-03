@@ -1516,7 +1516,8 @@
 
             // NEW: Auth button listeners
             googleStartBtn.addEventListener('click', () => startApp(signInWithGoogle));
-            anonymousStartBtn.addEventListener('click', () => startApp(signInAnonymously));
+            // MODIFIED: Pass a function that *calls* signInAnonymously with the auth object
+            anonymousStartBtn.addEventListener('click', () => startApp(() => signInAnonymously(auth)));
 
             // Schedule selection
             scheduleSelector.addEventListener('change', () => {
