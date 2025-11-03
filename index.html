@@ -99,7 +99,7 @@
                     <option value="Chime">Chime</option>
                     <option value="Beep">Beep</option>
                     <option value="Alarm">Alarm</option>
-                    <!-- <option value="ellisBell.mp3">Ellis Bell</option> <-- Removed, external file -->
+                    <option value="ellisBell.mp3">Ellis Bell</option> <!-- Added custom bell -->
                 </select>
             </div>
 
@@ -144,7 +144,7 @@
                     <option value="Chime">Chime</option>
                     <option value="Beep">Beep</option>
                     <option value="Alarm">Alarm</option>
-                    <!-- <option value="ellisBell.mp3">Ellis Bell</option> <-- Removed, external file -->
+                    <option value="ellisBell.mp3">Ellis Bell</option> <!-- Added custom bell -->
                 </select>
             </div>
             
@@ -289,7 +289,7 @@
                             <option value="Chime">Chime</option>
                             <option value="Beep">Beep</option>
                             <option value="Alarm">Alarm</option>
-                            <!-- <option value="ellisBell.mp3">Ellis Bell</option> <-- Removed, external file -->
+                            <option value="ellisBell.mp3" selected>Ellis Bell</option> <!-- Added custom bell and made default -->
                         </select>
                     </div>
                     <button type="button" id="preview-shared-sound" class="px-4 py-2 text-2xl bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors" aria-label="Preview sound">
@@ -345,7 +345,7 @@
                             <option value="Chime">Chime</option>
                             <option value="Beep">Beep</option>
                             <option value="Alarm">Alarm</option>
-                            <!-- <option value="ellisBell.mp3">Ellis Bell</option> <-- Removed, external file -->
+                            <option value="ellisBell.mp3">Ellis Bell</option> <!-- Added custom bell -->
                         </select>
                     </div>
                     <button type="button" id="preview-custom-sound" class="px-4 py-2 text-2xl bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors" aria-label="Preview sound">
@@ -510,8 +510,9 @@
                 envelope: { attack: 0.1, decay: 0.2, release: 0.1 }
             }).toDestination();
             
-            // FIXED: Removed 'ellisBell.mp3' as it's an external file
-            // synths['ellisBell.mp3'] = new Tone.Player("ellisBell.mp3").toDestination();
+            // NEW: Added ellisBell.mp3 as a Tone.Player
+            // This assumes 'ellisBell.mp3' is in the same directory as index.html
+            synths['ellisBell.mp3'] = new Tone.Player("ellisBell.mp3").toDestination();
         }
 
         function playBell(soundName) {
@@ -1438,3 +1439,5 @@
     </script>
 </body>
 </html>
+
+
