@@ -709,6 +709,7 @@
             
             if (allSchedules.length === 0) {
                  scheduleSelector.innerHTML = '<option value="">No schedules found. Create one!</option>';
+                 setActiveSchedule(""); // <-- ADDED THIS LINE
                  return;
             }
             
@@ -869,6 +870,17 @@
                        statusElement.textContent = "Please sign in to load schedules.";
                      }
                  });
+
+                 // NEW: Trigger initial sign-in if no user
+                 if (!auth.currentUser) {
+                    console.log("No user, signing in anonymously.");
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (authError) {
+                        console.error("Initial anonymous sign-in failed:", authError);
+                        statusElement.textContent = "Authentication failed.";
+                    }
+                 }
 
             } catch (error) {
                 console.error("Firebase Init Error:", error);
@@ -1432,7 +1444,7 @@
                await signOut(auth);
                // onAuthStateChanged will handle the rest, but we will also
                // sign the user in anonymously right away so the app keeps working.
-               await signInAnonymously(auth);
+               // await signInAnonymously(auth); // <-- REMOVED THIS LINE
            } catch (error) {
                console.error("Sign Out Error:", error);
            }
@@ -1471,12 +1483,14 @@
                     // FIXED: Removed diff markers
                    // Trigger anonymous sign-in if no user
                    // This ensures the app works even if they don't click Google Sign-In
+                   /* MOVED this logic into initFirebase()
                    if (!auth.currentUser) {
                        signInAnonymously(auth).catch(err => {
                            console.error("Initial anonymous sign-in failed:", err);
                            statusElement.textContent = "Authentication failed.";
                        });
                    }
+                   */
                 }).catch(e => {
                     console.error("Tone.start failed:", e);
                     // MODAL FIX: Replace alert
@@ -1570,4 +1584,5 @@
     </script>
 </body>
 </html>
+
 
