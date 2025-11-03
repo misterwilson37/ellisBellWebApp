@@ -387,7 +387,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         // import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js"; // Not used
         // FIXED: Removed diff markers
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel, deleteDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- DOM Elements ---
@@ -805,6 +805,33 @@
                 
                 // Enable debug logging for Firestore
                 setLogLevel('Debug');
+
+                // --- NEW: Check for redirect result ---
+                try {
+                    const result = await getRedirectResult(auth);
+                    if (result) {
+                        // This means the user is just returning from Google sign-in
+                        console.log("Google redirect result found:", result.user.email);
+                        // We need to start Tone and hide the overlay, just like startApp does
+                        await Tone.start();
+                        console.log("AudioContext started.");
+                        setupSynths();
+                        audioOverlay.classList.add('hidden');
+                        statusElement.textContent = "Connecting...";
+                        
+                        // Start the clock
+                        requestAnimationFrame(updateClock);
+                        
+                        // onAuthStateChanged will handle the rest
+                    } else {
+                        // No redirect result, this is a normal page load.
+                        // The auth overlay will remain visible (if user is not signed in)
+                        // and wait for a button click.
+                    }
+                } catch (error) {
+                    console.error("Error checking redirect result:", error);
+                }
+                // --- End new logic ---
 
                 // FIXED: Removed diff markers
                 // MODIFIED: Handle Google Auth vs. Anonymous
@@ -1438,7 +1465,8 @@
            const provider = new GoogleAuthProvider();
            try {
                // This will trigger the onAuthStateChanged listener
-               await signInWithPopup(auth, provider);
+               // await signInWithPopup(auth, provider); // <-- OLD
+               await signInWithRedirect(auth, provider); // <-- NEW
            } catch (error) {
                console.error("Google Sign-In Error:", error);
                // If user closes popup, do nothing. They are still on the auth screen.
@@ -1621,6 +1649,7 @@
     </script>
 </body>
 </html>
+
 
 
 
