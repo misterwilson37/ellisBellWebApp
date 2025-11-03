@@ -13,16 +13,19 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        inter: ['Inter', 'sans-serif'],
+                        // Use Century Gothic, with Questrial as a web-safe fallback
+                        sans: ['Century Gothic', 'Questrial', 'sans-serif'],
                     },
                 },
             },
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Updated Google Font to include Questrial as a Century Gothic fallback -->
+    <link href="https://fonts.googleapis.com/css2?family=Questrial&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            /* Apply the new font stack */
+            font-family: 'Century Gothic', 'Questrial', sans-serif;
         }
         /* Styles for Admin Controls */
         /* Hide admin controls and shared delete buttons by default */
@@ -44,7 +47,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900">
+<body class="bg-gray-100 text-gray-900 font-sans"> <!-- Added font-sans to apply tailwind default -->
 
     <!-- Audio Start Overlay -->
     <div id="audio-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -995,4 +998,5 @@
     </script>
 </body>
 </html>
+
 
