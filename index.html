@@ -25,7 +25,7 @@
     <style>
         body {
             /* Apply the new font stack */
-            font-family: 'Century Gothic', 'Questrial', sans-serif;
+            font-family: 'Century Gothic', 'Questrial', 'sans-serif';
         }
         /* Styles for Admin Controls */
         /* Hide admin controls and shared delete/edit buttons by default */
@@ -231,11 +231,7 @@
             </select>
             
             <!-- NEW: Admin button to delete the selected schedule -->
-            <div class="admin-control mt-4">
-                <button id="delete-schedule-btn" class="w-full px-4 py-2 bg-red-600 text-white font-medium rounded-lg shadow-md hover:bg-red-700 transition-colors">
-                    Delete Selected Schedule
-                </button>
-            </div>
+            <!-- MOVED this button to the main Admin Zone below -->
         </div>
         
         <!-- NEW: Admin Zone for creating schedules and adding bells -->
@@ -253,11 +249,53 @@
                 </div>
             </form>
 
+            <!-- NEW: Add Bell to THIS Schedule Form -->
+            <form id="add-shared-bell-form" class="border-t pt-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Add Bell to This Schedule</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="shared-bell-time" class="block text-sm font-medium text-gray-700 mb-1">Time (HH:MM:SS)</label>
+                        <input type="time" id="shared-bell-time" step="1" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="shared-bell-name" class="block text-sm font-medium text-gray-700 mb-1">Bell Name</label>
+                        <input type="text" id="shared-bell-name" placeholder="e.g. 1st Period Start" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:items-end gap-4">
+                    <div class="flex-grow" style="min-width: 120px;">
+                        <label for="shared-bell-sound" class="block text-sm font-medium text-gray-700 mb-1">Sound</label>
+                        <select id="shared-bell-sound" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="Bell">Bell</option>
+                            <option value="Chime">Chime</option>
+                            <option value="Beep">Beep</option>
+                            <option value="Alarm">Alarm</option>
+                            <option value="ellisBell.mp3">Ellis Bell</option>
+                        </select>
+                    </div>
+                    <button type="button" id="preview-shared-sound" class="px-4 py-2 text-2xl bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors" aria-label="Preview sound">
+                        ▶
+                    </button>
+                    <button type="submit" class="w-full sm:w-auto px-6 py-2 bg-green-600 text-white font-medium rounded-lg shadow-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        Add Shared Bell
+                    </button>
+                </div>
+                <p id="add-shared-status" class="text-blue-600 text-sm mt-3 hidden"></p>
+            </form>
+
             <!-- Add Bell to Schedules Button -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Add Shared Bells</label>
+            <div class="border-t pt-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Add Bell to Multiple Schedules</label>
                 <button type="button" id="show-add-bell-modal-btn" class="w-full px-6 py-2 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700">
                     Add Bell to Schedules...
+                </button>
+            </div>
+
+            <!-- MOVED: Delete Selected Schedule Button -->
+            <div class="border-t pt-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Delete Current Schedule</label>
+                <button id="delete-schedule-btn" class="w-full px-4 py-2 bg-red-600 text-white font-medium rounded-lg shadow-md hover:bg-red-700 transition-colors">
+                    Delete Selected Schedule
                 </button>
             </div>
         </div>
@@ -310,6 +348,7 @@
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // REMOVED: App Check import
 
         // --- DOM Elements ---
         const audioOverlay = document.getElementById('audio-overlay');
@@ -333,6 +372,14 @@
         const customNameInput = document.getElementById('custom-bell-name'); // New
         const customSoundInput = document.getElementById('custom-bell-sound');
         
+        // NEW: Add Shared Bell Form (in Admin Zone)
+        const addSharedBellForm = document.getElementById('add-shared-bell-form');
+        const sharedTimeInput = document.getElementById('shared-bell-time');
+        const sharedNameInput = document.getElementById('shared-bell-name');
+        const sharedSoundInput = document.getElementById('shared-bell-sound');
+        const previewSharedSoundBtn = document.getElementById('preview-shared-sound');
+        const addSharedStatus = document.getElementById('add-shared-status');
+
         // Combined List
         const combinedBellListElement = document.getElementById('combined-bell-list');
         const previewCustomSoundBtn = document.getElementById('preview-custom-sound');
@@ -373,7 +420,6 @@
         const deleteScheduleBtn = document.getElementById('delete-schedule-btn');
         const confirmDeleteModal = document.getElementById('confirm-delete-modal');
         const confirmDeleteText = document.getElementById('confirm-delete-text');
-        const deleteCancelBtn = document.getElementById('delete-cancel');
         const deleteConfirmBtn = document.getElementById('delete-confirm');
 
         // --- App State ---
@@ -814,6 +860,46 @@
             }, 2000);
         }
         
+        // NEW: Add Bell to THIS Schedule (single)
+        async function handleAddSharedBell(e) {
+            e.preventDefault();
+            const time = sharedTimeInput.value;
+            const name = sharedNameInput.value;
+            const sound = sharedSoundInput.value;
+
+            if (!time || !name) return;
+
+            // Check for duplicates
+            if (localSchedule.find(bell => bell.time === time)) {
+                addSharedStatus.textContent = `A bell already exists on this schedule at ${time}`;
+                addSharedStatus.classList.remove('hidden');
+                return;
+            }
+
+            localSchedule.push({ time, name, sound });
+            renderCombinedList(); // Optimistic update
+            
+            try {
+                await updateActiveScheduleBells(); // Push to cloud
+                addSharedStatus.textContent = "Bell added successfully!";
+                addSharedStatus.classList.remove('hidden');
+            } catch (error) {
+                console.error("Error adding shared bell:", error);
+                addSharedStatus.textContent = "Error adding bell.";
+                addSharedStatus.classList.remove('hidden');
+                // Revert optimistic update on error?
+                localSchedule.pop();
+                renderCombinedList();
+            }
+            
+            sharedTimeInput.value = ""; // Clear form
+            sharedNameInput.value = "";
+            
+            setTimeout(() => {
+                addSharedStatus.classList.add('hidden');
+            }, 2000);
+        }
+
         // NEW: Create a new shared schedule
         async function handleCreateSchedule(e) {
             e.preventDefault();
@@ -1121,7 +1207,7 @@
        /**
         * Loads the initial schedule on startup.
         */
-       async function loadAndSetInitialSchedule() {
+        async function loadAndSetInitialSchedule() {
            const savedId = localStorage.getItem('schoolBell-activeScheduleId');
            
            const snapshot = await getDocs(schedulesCollectionRef);
@@ -1150,6 +1236,7 @@
         async function initialize() {
             
             // Your web app's Firebase configuration (from your snippet)
+            // This is PUBLIC and that is OK. Security is handled by Firestore Rules.
             const firebaseConfig = {
               apiKey: "AIzaSyDfo45UBu-pR8nqMQhVlS_QgyYZ2kzBdvM",
               authDomain: "ellisbell-c185c.firebaseapp.com",
@@ -1163,6 +1250,9 @@
             // 1. Initialize Firebase
             const app = initializeApp(firebaseConfig);
             const analytics = getAnalytics(app); // Added analytics
+            
+            // REMOVED: App Check initialization block
+            
             db = getFirestore(app);
             auth = getAuth(app);
             setLogLevel('debug'); // Enable debug logging for firestore
@@ -1210,13 +1300,13 @@
                 updateClock(); // Start the live clock
                 
                 audioOverlay.style.display = 'none'; // Hide overlay
-            } catch (error) {
+            } catch (error)
                 console.error("Error starting Tone.js:", error);
                 audioOverlay.innerHTML = `<div class="text-white text-2xl text-center">Sorry, audio could not be started.<br>Please refresh and try again.</div>`;
             }
         });
 
-        // Attach form/list listeners
+        // --- Attach form/list listeners
         addCustomBellForm.addEventListener('submit', handleAddCustomBell);
         scheduleSelector.addEventListener('change', handleScheduleChange);
         combinedBellListElement.addEventListener('click', handleDeleteFromCombinedList);
@@ -1228,6 +1318,10 @@
         createScheduleForm.addEventListener('submit', handleCreateSchedule);
         deleteScheduleBtn.addEventListener('click', handleDeleteSchedule);
         deleteCancelBtn.addEventListener('click', () => confirmDeleteModal.classList.add('hidden'));
+        addSharedBellForm.addEventListener('submit', handleAddSharedBell);
+        previewSharedSoundBtn.addEventListener('click', () => {
+            playBell(sharedSoundInput.value);
+        });
 
         // Admin Modal Listeners
         adminToggleBtn.addEventListener('click', () => {
@@ -1249,7 +1343,7 @@
             }
         });
 
-        // NEW: Multi-Add Bell Modal Listeners
+D: Multi-Add Bell Modal Listeners
         showAddBellModalBtn.addEventListener('click', () => {
             // Re-render the schedule list every time modal is opened
             // to ensure it's up to date.
@@ -1305,4 +1399,5 @@
     </script>
 </body>
 </html>
+
 
