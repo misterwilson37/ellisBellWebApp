@@ -55,9 +55,8 @@
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans"> <!-- Added font-sans to apply tailwind default -->
 
-    <!-- Audio Start Overlay - REPURPOSED as Auth Screen -->
-    <div id="audio-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <!-- MODIFIED: New layout for auth choice -->
+    <!-- NEW: Auth/Welcome Overlay -->
+    <div id="welcome-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
         <div class="bg-white p-10 rounded-lg shadow-xl w-full max-w-md text-center">
             <h2 class="text-3xl font-bold text-blue-700 mb-4">Welcome to School Bell</h2>
             <p class="text-gray-600 mb-8">Please sign in to load and sync schedules.</p>
@@ -79,7 +78,13 @@
         </div>
     </div>
 
-    <!-- Admin Password Modal - REMOVED -->
+    <!-- NEW: Audio Start Overlay (for redirect flow) -->
+    <div id="audio-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 hidden">
+        <button id="start-audio-btn" class="px-8 py-4 bg-blue-600 text-white font-bold text-2xl rounded-lg shadow-lg hover:bg-blue-700 transition-colors">
+            Click to Start Audio
+        </button>
+    </div>
+
 
     <!-- NEW: Add Bell to Multiple Schedules Modal -->
     <div id="add-bell-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden">
@@ -220,7 +225,6 @@
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-blue-700">School Bell</h1>
             <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
-            <!-- NEW: Auth Buttons - REMOVED from header -->
             
             <!-- MODIFIED: User info and signout button grouped -->
             <div class="mt-4 flex flex-col sm:flex-row justify-center items-center gap-4">
@@ -270,8 +274,6 @@
                 <option value="">Loading schedules...</option>
             </select>
             
-            <!-- NEW: Admin button to delete the selected schedule -->
-            <!-- MOVED this button to the main Admin Zone below -->
         </div>
         
         <!-- NEW: Admin Zone for creating schedules and adding bells -->
@@ -387,16 +389,15 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         // import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js"; // Not used
         
-        /*
-        // FIXED: Reverted back to signInWithPopup, removed signInWithRedirect/getRedirectResult
-        */
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // MODIFIED: Switched to signInWithRedirect
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signOut, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel, deleteDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- DOM Elements ---
+        const welcomeOverlay = document.getElementById('welcome-overlay');
         const audioOverlay = document.getElementById('audio-overlay');
-        // REMOVED: const startAudioBtn = document.getElementById('start-audio-btn');
-        // NEW: Auth start buttons
+        const startAudioBtn = document.getElementById('start-audio-btn');
+        
         const googleStartBtn = document.getElementById('google-start-btn');
         const anonymousStartBtn = document.getElementById('anonymous-start-btn');
         
@@ -407,13 +408,6 @@
         const scheduleSelector = document.getElementById('schedule-selector');
         const scheduleTitle = document.getElementById('schedule-title');
         const adminToggleBtn = document.getElementById('admin-toggle');
-        
-        // REMOVED: Admin Modal Elements
-        // const adminModal = document.getElementById('admin-modal');
-        // const adminPasswordInput = document.getElementById('admin-password');
-        // const adminSubmitBtn = document.getElementById('admin-submit');
-        // const adminCancelBtn = document.getElementById('admin-cancel');
-        // const adminError = document.getElementById('admin-error');
         
         // Custom Bell Form
         const addCustomBellForm = document.getElementById('add-custom-bell-form');
@@ -444,9 +438,8 @@
         const multiAddCancelBtn = document.getElementById('multi-add-cancel');
         const multiAddSubmitBtn = document.getElementById('multi-add-submit');
         const multiAddStatus = document.getElementById('multi-add-status');
-        // FIXED: Removed diff markers
-       const multiSelectAllBtn = document.getElementById('multi-select-all');
-       const multiSelectNoneBtn = document.getElementById('multi-select-none');
+        const multiSelectAllBtn = document.getElementById('multi-select-all');
+        const multiSelectNoneBtn = document.getElementById('multi-select-none');
 
         // NEW: Edit Bell Modal
         const editBellModal = document.getElementById('edit-bell-modal');
@@ -481,19 +474,17 @@
         const deleteBellConfirmBtn = document.getElementById('delete-bell-confirm');
         const deleteBellCancelBtn = document.getElementById('delete-bell-cancel');
 
-        // REMOVED: const googleSignInBtn = document.getElementById('google-signin-btn');
-       const signOutBtn = document.getElementById('signout-btn');
+        const signOutBtn = document.getElementById('signout-btn');
 
-       // NEW: Admin Email List
-       const ADMIN_EMAIL_LIST = [
+        // NEW: Admin Email List
+        const ADMIN_EMAIL_LIST = [
            'jacob.v.wilson@gmail.com'
            // Add more emails here in the future
-       ];
+        ];
 
         // --- App State ---
         let db, auth;
         let userId;
-        // BELLS ARE NOW { time, name, sound }
         let localSchedule = []; // Holds array of SHARED bells
         let customBells = []; // Holds array of CUSTOM bells
         let scheduleRef; // Firestore document reference TO THE ACTIVE SCHEDULE
@@ -505,29 +496,35 @@
         let lastBellRingTime = null; // To prevent duplicate rings
         let clockAnimationId = null; // NEW: To control the clock loop
         
-        // NEW: State for editing bells
         let currentEditingBell = null; // Stores { time, name, sound, type, originalTime, originalName } of the bell being edited
         let linkedEditData = null; // Stores data for the linked edit confirmation
-        
-        // NEW: State for deleting a bell
         let bellToDelete = null; // Stores { time, name, type } of bell to delete
 
-        // MODIFIED: Use the static appId from the config
         let appId; // Will be set in initFirebase
-
-        // --- Default Schedules (for seeding) ---
-        // This is no longer used for seeding, but as a reference. Seeding is complex in a multi-user env.
-        const SCHEDULE_DEFAULTS = [
-            { id: "6th-grade-a", name: "6th Grade A" },
-            { id: "6th-grade-b", name: "6th Grade B" },
-            { id: "7th-grade-a", name: "7th Grade A" },
-            { id: "7th-grade-b", name: "7th Grade B" },
-            { id: "8th-grade", name: "8th Grade" },
-            { id: "related-arts-a", name: "Related Arts A" },
-            { id: "related-arts-b", name: "Related Arts B" },
-        ];
+        let isAudioReady = false; // NEW: Track audio state
 
         // --- Audio Setup (Tone.js) ---
+        // MODIFIED: This is now called *after* user gesture
+        async function startAudio() {
+            if (isAudioReady) return;
+            try {
+                await Tone.start();
+                console.log("AudioContext started.");
+                setupSynths();
+                isAudioReady = true;
+                audioOverlay.classList.add('hidden');
+                statusElement.textContent = "Audio ready. Monitoring bells...";
+                
+                // Start the clock
+                if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
+                clockAnimationId = requestAnimationFrame(updateClock);
+
+            } catch (e) {
+                console.error("Audio start failed:", e);
+                statusElement.textContent = "Error starting audio. Please refresh.";
+            }
+        }
+
         function setupSynths() {
             // Using .toDestination() connects the synth to the speakers
             synths['Bell'] = new Tone.MetalSynth({
@@ -555,11 +552,14 @@
             }).toDestination();
             
             // NEW: Added ellisBell.mp3 as a Tone.Player
-            // This assumes 'ellisBell.mp3' is in the same directory as index.html
             synths['ellisBell.mp3'] = new Tone.Player("ellisBell.mp3").toDestination();
         }
 
         function playBell(soundName) {
+            if (!isAudioReady) {
+                console.warn("Audio not ready. Cannot play bell.");
+                return;
+            }
             if (!synths[soundName]) {
                 console.warn(`Sound '${soundName}' not found.`);
                 return;
@@ -586,7 +586,9 @@
                         synth.triggerAttackRelease("C5", "0.1", now + 0.3);
                     }
                 }
-                statusElement.textContent = `Previewing: ${soundName}`;
+                if (!statusElement.textContent.startsWith("Ringing:")) {
+                    statusElement.textContent = `Previewing: ${soundName}`;
+                }
             } catch (error) {
                 console.error("Error playing sound:", error);
             }
@@ -608,14 +610,13 @@
             const bellToRing = allBells.find(bell => bell.time === currentTimeHHMMSS);
             
             if (bellToRing && lastBellRingTime !== currentTimeHHMMSS) {
-                // Use a different function for actual ringing to not say "Previewing"
-                ringBell(bellToRing); // Pass the whole bell object
+                ringBell(bellToRing); 
                 lastBellRingTime = currentTimeHHMMSS;
             }
             
             if (lastBellRingTime && lastBellRingTime !== currentTimeHHMMSS) {
                 lastBellRingTime = null;
-                statusElement.textContent = "Monitoring...";
+                if (isAudioReady) statusElement.textContent = "Monitoring...";
             }
 
             // Update next bell time
@@ -624,13 +625,11 @@
             clockAnimationId = requestAnimationFrame(updateClock); // Loop
         }
         
-        // * This was the truncated function. Now completed. *
         function ringBell(bell) {
             console.log("Ringing bell:", bell.name);
             playBell(bell.sound);
             statusElement.textContent = `Ringing: ${bell.name}`;
             
-            // Highlight the bell in the list
             const bellElement = document.querySelector(`[data-time="${bell.time}"][data-name="${bell.name}"]`);
             if (bellElement) {
                 bellElement.classList.add('bg-blue-100');
@@ -643,18 +642,15 @@
         function updateNextBellMessage(currentTimeHHMMSS) {
             const allBells = [...localSchedule, ...customBells];
             
-            // Filter for bells that are in the future *today*
             let upcomingBells = allBells.filter(bell => bell.time > currentTimeHHMMSS);
             
             let nextBell;
             if (upcomingBells.length > 0) {
-                // Sort upcoming bells and take the soonest one
                 upcomingBells.sort((a, b) => a.time.localeCompare(b.time));
                 nextBell = upcomingBells[0];
             } else {
-                // If no bells are left today, find the *first* bell of "tomorrow"
                 allBells.sort((a, b) => a.time.localeCompare(b.time));
-                nextBell = allBells[0]; // This will be the first bell in the sorted list
+                nextBell = allBells[0]; 
             }
 
             if (nextBell) {
@@ -679,10 +675,6 @@
                 const isFirst = index === 0;
                 const isAdmin = document.body.classList.contains('admin-mode');
 
-                // Determine which buttons to show
-                const showSharedEdit = !isCustom; // Admin-only, handled by CSS
-                const showCustomEdit = isCustom; // Always show
-                
                 return `
                     <div class="flex items-center justify-between p-4 ${!isFirst ? 'border-t border-gray-200' : ''} hover:bg-gray-50 transition-colors"
                          data-time="${bell.time}" data-name="${bell.name}" data-sound="${bell.sound}" data-type="${bell.type}">
@@ -723,7 +715,7 @@
             
             if (allSchedules.length === 0) {
                  scheduleSelector.innerHTML = '<option value="">No schedules found. Create one!</option>';
-                 setActiveSchedule(""); // <-- ADDED THIS LINE
+                 setActiveSchedule("");
                  return;
             }
             
@@ -733,7 +725,6 @@
                 </option>`
             ).join('');
             
-            // Trigger a change to load the selected schedule
             setActiveSchedule(scheduleSelector.value);
         }
 
@@ -762,14 +753,11 @@
             const sound = customSoundInput.value;
             
             if (!time || !name) {
-                // MODAL FIX: Replace alert with a modal if you have one
                 console.warn("Please provide a time and name for the custom bell.");
                 return;
             }
 
-            // Check for duplicates
             if (customBells.find(b => b.time === time && b.name === name)) {
-                // MODAL FIX: Replace alert with a modal if you have one
                 console.warn("This custom bell already exists.");
                 return;
             }
@@ -780,14 +768,10 @@
         }
 
         // --- Firebase Logic ---
-        // MODIFIED: This function is now called from startApp, not init
         async function initFirebase() {
-            // Only initialize once
-            if (auth) return; 
+            if (auth) return; // Already initialized
 
             try {
-                // WARNING: Your API key is visible in this client-side code.
-                // For production, ensure you have appropriate App Check and Firestore Security Rules.
                 const firebaseConfig = {
                     apiKey: "AIzaSyDfo45UBu-pR8nqMQhVlS_QgyYZ2kzBdvM",
                     authDomain: "ellisbell-c185c.firebaseapp.com",
@@ -798,41 +782,39 @@
                     measurementId: "G-D6TX4YRBSD"
                 };
                 
-                if (!firebaseConfig.apiKey) {
-                    console.error("Firebase config is missing.");
-                    statusElement.textContent = "Error: Firebase config not found.";
-                    return;
-                }
-                
-                // MODIFIED: Set appId from the static config
                 appId = firebaseConfig.appId; 
-
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Enable debug logging for Firestore
                 setLogLevel('Debug');
                 
-                // MODIFIED: Handle Google Auth vs. Anonymous
+                // --- Handle Auth State Changes ---
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        // This now runs for *both* Google and Anonymous users after successful sign-in
-                        // And *after* Tone.start() and clock start has been handled by startApp
                         console.log("User is signed in:", user.uid);
                         userId = user.uid;
+                        welcomeOverlay.classList.add('hidden');
+                        
+                        // NEW: Show audio overlay if not ready
+                        if (!isAudioReady) {
+                            audioOverlay.classList.remove('hidden');
+                        } else {
+                            // Audio is ready, start clock
+                            if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
+                            clockAnimationId = requestAnimationFrame(updateClock);
+                        }
 
-                       // Update UI based on auth state
-                       document.body.classList.add('authenticated');
-                       signOutBtn.classList.remove('hidden');
-
-                       if (user.isAnonymous) {
+                        // Update UI
+                        document.body.classList.add('authenticated');
+                        signOutBtn.classList.remove('hidden');
+                        if (user.isAnonymous) {
                            userIdElement.textContent = `Anonymous ID: ${user.uid}`;
-                       } else {
+                        } else {
                            userIdElement.textContent = `Signed in as: ${user.displayName || user.email}`;
-                       }
+                        }
  
-                        // **** NEW ADMIN CHECK LOGIC ****
+                        // Admin Check
                         if (ADMIN_EMAIL_LIST.includes(user.email)) {
                             console.log("Admin user detected:", user.email);
                             adminToggleBtn.disabled = false;
@@ -843,60 +825,65 @@
                             adminToggleBtn.disabled = true;
                             adminToggleBtn.classList.add('opacity-50', 'cursor-not-allowed');
                             adminToggleBtn.title = "Admin access required";
-                            // Also, ensure they are not in admin mode if they were somehow
                             document.body.classList.remove('admin-mode');
                             adminToggleBtn.textContent = 'Toggle Admin';
                         }
-                        // **** END NEW ADMIN LOGIC ****
-
-                         // This is the main entry point after auth
-                         
-                         // Setup collection ref now that we have db and appId
-                         // Data is public, so we use the 'public' path
-                         // FIXED: Added 'data' segment to path
-                         
-                       // Only load schedules once
-                       if (!schedulesCollectionRef) {
-                           schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
-                           await loadAllSchedules();
-                       }
-                         
-                         statusElement.textContent = "Connected. Monitoring bells...";
+                        
+                        // Load data
+                        schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
+                        await loadAllSchedules();
+                        statusElement.textContent = "Connected. Click to start audio.";
 
                      } else {
                         console.log("User is signed out.");
-                        // User is signed out, update UI
                         userId = null;
                         
-                        // NEW: Stop the clock
+                        // Stop clock
                         if (clockAnimationId) {
                             cancelAnimationFrame(clockAnimationId);
                             clockAnimationId = null;
                         }
-
-                       document.body.classList.remove('authenticated');
-                       signOutBtn.classList.add('hidden');
-                       userIdElement.textContent = "Not signed in. Click 'Sign in' to start.";
-
-                        // **** NEW: Disable admin toggle on sign-out ****
+                        
+                        // Reset UI
+                        document.body.classList.remove('authenticated');
+                        signOutBtn.classList.add('hidden');
+                        userIdElement.textContent = "Not signed in.";
                         adminToggleBtn.disabled = true;
                         adminToggleBtn.classList.add('opacity-50', 'cursor-not-allowed');
                         adminToggleBtn.title = "Sign in to see admin options";
                         document.body.classList.remove('admin-mode');
                         adminToggleBtn.textContent = 'Toggle Admin';
-                        // **** END NEW LOGIC ****
-
-                       // Clear schedule
-                       localSchedule = [];
-                       allSchedules = [];
-                       renderScheduleSelector();
-                       renderCombinedList();
-                       statusElement.textContent = "Please sign in to load schedules.";
+                        
+                        // Clear data
+                        localSchedule = [];
+                        allSchedules = [];
+                        renderScheduleSelector();
+                        renderCombinedList();
+                        statusElement.textContent = "Please sign in to load schedules.";
                        
-                       // NEW: Show the auth overlay when user is signed out
-                       audioOverlay.classList.remove('hidden');
+                        // Show welcome overlay
+                        welcomeOverlay.classList.remove('hidden');
+                        audioOverlay.classList.add('hidden'); // Hide audio overlay
                      }
                  });
+
+                // --- Handle Redirect Result ---
+                // This checks if we just came back from Google
+                try {
+                    const result = await getRedirectResult(auth);
+                    if (result) {
+                        // This will trigger the onAuthStateChanged listener
+                        console.log("Handled redirect result.", result.user);
+                    } else {
+                        // This means a normal page load, not a redirect return
+                        console.log("No redirect result found.");
+                        // If no user, the onAuthStateChanged will show the welcome overlay
+                    }
+                } catch (error) {
+                    console.error("GetRedirectResult Error:", error);
+                    statusElement.textContent = "Error during sign-in. Please try again.";
+                    welcomeOverlay.classList.remove('hidden'); // Show overlay on error
+                }
 
             } catch (error) {
                 console.error("Firebase Init Error:", error);
@@ -906,7 +893,6 @@
         
         async function loadAllSchedules() {
             if (!schedulesCollectionRef) {
-                 // FIXED: Added 'data' segment to path
                  schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
             }
 
@@ -917,13 +903,9 @@
                     name: doc.data().name || "Unnamed Schedule",
                     bells: doc.data().bells || []
                 }));
-
-                // Sort schedules by name
                 allSchedules.sort((a, b) => a.name.localeCompare(b.name));
-                
                 console.log("Loaded all schedules:", allSchedules.length);
                 renderScheduleSelector();
-                
             } catch (error) {
                 console.error("Error loading all schedules: ", error);
                 statusElement.textContent = "Error loading schedules.";
@@ -931,7 +913,6 @@
         }
 
         function setActiveSchedule(scheduleId) {
-            // Unsubscribe from the old schedule listener, if it exists
             if (activeScheduleListenerUnsubscribe) {
                 activeScheduleListenerUnsubscribe();
             }
@@ -947,24 +928,20 @@
             
             console.log("Setting active schedule:", scheduleId);
             activeScheduleId = scheduleId;
-            localStorage.setItem('activeScheduleId', scheduleId); // Remember choice
+            localStorage.setItem('activeScheduleId', scheduleId);
 
-            // Get the doc reference for the new schedule
-            // FIXED: Added 'data' segment to path
             scheduleRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', scheduleId);
 
-            // Listen for real-time updates to this schedule
             activeScheduleListenerUnsubscribe = onSnapshot(scheduleRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const scheduleData = docSnap.data();
                     scheduleTitle.textContent = scheduleData.name;
                     localSchedule = (scheduleData.bells || []).map(bell => ({
                         ...bell,
-                        type: 'shared' // Ensure type is set
+                        type: 'shared' 
                     }));
                     console.log("Active schedule updated:", localSchedule.length, "bells");
                     
-                    // Update the master list of all schedules with this new data
                     const scheduleIndex = allSchedules.findIndex(s => s.id === scheduleId);
                     if (scheduleIndex > -1) {
                         allSchedules[scheduleIndex].bells = scheduleData.bells || [];
@@ -975,7 +952,6 @@
                     console.warn("Selected schedule does not exist.");
                     localSchedule = [];
                     scheduleTitle.textContent = "Schedule Not Found";
-                    // It might have been deleted, reload all schedules
                     loadAllSchedules();
                 }
                 renderCombinedList();
@@ -991,19 +967,15 @@
             if (!name) return;
             
             try {
-                // Add a new document with a generated ID
                 const newDocRef = await addDoc(schedulesCollectionRef, {
                     name: name,
-                    bells: [] // Start with an empty bell list
+                    bells: [] 
                 });
                 
                 console.log("Schedule created with ID:", newDocRef.id);
                 newScheduleNameInput.value = '';
-                
-                // Reload all schedules to update the dropdown
                 await loadAllSchedules();
                 
-                // Automatically select the new schedule
                 scheduleSelector.value = newDocRef.id;
                 setActiveSchedule(newDocRef.id);
                 
@@ -1015,7 +987,6 @@
         async function handleAddSharedBell(e) {
             e.preventDefault();
             if (!activeScheduleId) {
-                // MODAL FIX: Replace alert
                 console.warn("Please select a schedule first.");
                 return;
             }
@@ -1025,26 +996,20 @@
             const sound = sharedSoundInput.value;
             
             if (!time || !name) {
-                // MODAL FIX: Replace alert
                 console.warn("Please provide a time and name for the bell.");
                 return;
             }
 
             const newBell = { time, name, sound };
-
-            // Get the current schedule data
             const currentSchedule = allSchedules.find(s => s.id === activeScheduleId);
             if (!currentSchedule) {
-                // MODAL FIX: Replace alert
                 console.warn("Could not find current schedule data.");
                 return;
             }
             
             const existingBells = currentSchedule.bells || [];
             
-            // Check for duplicates
             if (existingBells.find(b => b.time === time && b.name === name)) {
-                // MODAL FIX: Replace alert
                 console.warn("This bell (time and name) already exists in this schedule.");
                 return;
             }
@@ -1052,7 +1017,6 @@
             const updatedBells = [...existingBells, newBell];
 
             try {
-                // Update the document with the new bells array
                 await updateDoc(scheduleRef, {
                     bells: updatedBells
                 });
@@ -1063,7 +1027,6 @@
                 addSharedStatus.classList.remove('hidden');
                 setTimeout(() => addSharedStatus.classList.add('hidden'), 3000);
                 
-                // Our onSnapshot listener will handle the UI update
             } catch (error) {
                 console.error("Error adding shared bell:", error);
                 addSharedStatus.textContent = "Error adding bell.";
@@ -1073,7 +1036,6 @@
         
         async function handleDeleteSchedule() {
             if (!activeScheduleId) {
-                // MODAL FIX: Replace alert
                 console.warn("Please select a schedule to delete.");
                 return;
             }
@@ -1081,28 +1043,20 @@
             const scheduleName = scheduleSelector.options[scheduleSelector.selectedIndex].text;
             confirmDeleteText.textContent = `Are you sure you want to delete "${scheduleName}"? This cannot be undone.`;
             confirmDeleteModal.classList.remove('hidden');
-            
-            // We'll wait for the confirmation button click...
         }
         
         async function confirmDeleteSchedule() {
             if (!activeScheduleId) return;
             
             const scheduleIdToDelete = activeScheduleId;
-            // FIXED: Added 'data' segment to path
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', scheduleIdToDelete);
 
             try {
                 await deleteDoc(docRef);
                 console.log("Schedule deleted:", scheduleIdToDelete);
-                
-                // Clear state
                 activeScheduleId = null;
                 localSchedule = [];
-                
-                // Reload schedule list
                 await loadAllSchedules();
-                
             } catch (error) {
                 console.error("Error deleting schedule:", error);
             }
@@ -1122,28 +1076,18 @@
             const type = bellElement.dataset.type;
 
             if (target.classList.contains('delete-btn') || target.classList.contains('delete-custom-btn')) {
-                // MODIFIED: Show modal instead of confirm()
                 handleDeleteBellClick(time, name, type);
             } else if (target.classList.contains('edit-btn') || target.classList.contains('edit-custom-btn')) {
                 handleEditBellClick(time, name, sound, type);
             }
         }
 
-        // MODIFIED: This function now *shows* the confirmation modal
         function handleDeleteBellClick(time, name, type) {
-            // if (!confirm(`Are you sure you want to delete the bell "${name}" at ${time}?`)) {
-            //     return;
-            // }
-            
-            // Store the bell to be deleted
             bellToDelete = { time, name, type };
-            
-            // Show the modal
             confirmDeleteBellText.textContent = `Are you sure you want to delete the bell "${name}" at ${time}?`;
             confirmDeleteBellModal.classList.remove('hidden');
         }
         
-        // NEW: This function contains the logic from the old handleDeleteBellClick
         async function confirmDeleteBell() {
             if (!bellToDelete) return;
             
@@ -1153,10 +1097,8 @@
                 customBells = customBells.filter(b => !(b.time === time && b.name === name));
                 saveCustomBells();
             } else if (type === 'shared') {
-                // This bell belongs to the active shared schedule
                 const currentSchedule = allSchedules.find(s => s.id === activeScheduleId);
                 if (!currentSchedule) {
-                    // MODAL FIX: Replace alert
                     console.warn("Error: Could not find active schedule.");
                     return;
                 }
@@ -1166,13 +1108,11 @@
                 try {
                     await updateDoc(scheduleRef, { bells: updatedBells });
                     console.log("Shared bell deleted.");
-                    // onSnapshot will update the UI
                 } catch (error) {
                     console.error("Error deleting shared bell:", error);
                 }
             }
             
-            // Hide modal and clear state
             confirmDeleteBellModal.classList.add('hidden');
             bellToDelete = null;
         }
@@ -1184,7 +1124,7 @@
                 name, 
                 sound, 
                 type, 
-                originalTime: time, // Store original keys for finding it
+                originalTime: time, 
                 originalName: name
             };
             
@@ -1208,7 +1148,6 @@
             const { originalTime, originalName, type } = currentEditingBell;
 
             if (type === 'custom') {
-                // Find and update in customBells array
                 const index = customBells.findIndex(b => b.time === originalTime && b.name === originalName);
                 if (index > -1) {
                     customBells[index] = { ...newBellData, type: 'custom' };
@@ -1216,15 +1155,11 @@
                 }
                 closeEditBellModal();
             } else if (type === 'shared') {
-                // For shared bells, we must check other schedules
                 const originalBell = { time: originalTime, name: originalName, sound: currentEditingBell.sound };
                 const linkedSchedules = findLinkedSchedules(originalBell);
-                
-                // Remove the *current* schedule from the list, as we're already editing it
                 const otherLinkedSchedules = linkedSchedules.filter(s => s.id !== activeScheduleId);
 
                 if (otherLinkedSchedules.length > 0) {
-                    // Show confirmation modal
                     linkedEditData = {
                         originalBell,
                         newBellData,
@@ -1232,9 +1167,7 @@
                     };
                     renderLinkedScheduleList(otherLinkedSchedules);
                     confirmLinkedEditModal.classList.remove('hidden');
-                    // We pause the edit... it will be resumed by the linked modal's buttons
                 } else {
-                    // No other schedules are linked, just edit this one
                     await updateBellInSchedules(originalBell, newBellData, [activeScheduleId]);
                     closeEditBellModal();
                 }
@@ -1274,10 +1207,9 @@
             if (!linkedEditData) return;
             
             const { originalBell, newBellData, linkedSchedules } = linkedEditData;
-            let scheduleIdsToUpdate = [activeScheduleId]; // Always update the current one
+            let scheduleIdsToUpdate = [activeScheduleId]; 
             
             if (applyToAll) {
-                // Get all *checked* schedule IDs from the modal
                 const checkedSchedules = Array.from(document.querySelectorAll('.linked-schedule-check:checked'))
                                              .map(cb => cb.value);
                 scheduleIdsToUpdate.push(...checkedSchedules);
@@ -1299,8 +1231,6 @@
 
         async function updateBellInSchedules(originalBell, newBellData, scheduleIds) {
             const batch = writeBatch(db);
-            
-            // Use a Set to avoid duplicate updates if activeScheduleId was also in the list
             const uniqueScheduleIds = [...new Set(scheduleIds)];
             
             for (const scheduleId of uniqueScheduleIds) {
@@ -1309,19 +1239,16 @@
 
                 const updatedBells = schedule.bells.map(bell => {
                     if (bell.time === originalBell.time && bell.name === originalBell.name && bell.sound === originalBell.sound) {
-                        return newBellData; // Swap with new data
+                        return newBellData; 
                     }
                     return bell;
                 });
 
-                // FIXED: Added 'data' segment to path
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', scheduleId);
                 batch.update(docRef, { bells: updatedBells });
             }
 
             await batch.commit();
-            // onSnapshot will refresh the local data for the active schedule.
-            // But we must also refresh allSchedules data to keep it in sync for future edits
             await loadAllSchedules();
         }
         
@@ -1341,7 +1268,6 @@
 
         // --- Multi-Add Bell Modal Logic ---
         function showMultiAddModal() {
-            // Populate the schedule list
             if (allSchedules.length === 0) {
                 multiScheduleListContainer.innerHTML = '<p class="text-gray-500">No schedules found. Create one first.</p>';
             } else {
@@ -1366,7 +1292,6 @@
             };
             
             if (!newBell.time || !newBell.name) {
-                // MODAL FIX: Replace alert
                 console.warn("Please provide a time and name.");
                 return;
             }
@@ -1375,7 +1300,6 @@
                                              .map(cb => cb.value);
             
             if (checkedScheduleIds.length === 0) {
-                // MODAL FIX: Replace alert
                 console.warn("Please select at least one schedule.");
                 return;
             }
@@ -1394,11 +1318,9 @@
                     continue;
                 }
                 
-                // Add bell, but check for duplicates
                 const bellExists = schedule.bells.find(b => b.time === newBell.time && b.name === newBell.name);
                 if (!bellExists) {
                     const updatedBells = [...schedule.bells, newBell];
-                    // FIXED: Added 'data' segment to path
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', scheduleId);
                     batch.update(docRef, { bells: updatedBells });
                 }
@@ -1407,23 +1329,17 @@
             try {
                 await batch.commit();
                 multiAddStatus.textContent = `Successfully added bell to ${checkedScheduleIds.length - errors} schedule(s).`;
-                // Refresh allSchedules data
                 await loadAllSchedules();
                 
-                // FIXED: Removed diff markers
-               // MODIFIED: Don't close modal. Reset form instead.
-               // multiAddBellForm.reset(); // This doesn't reset select
-               multiBellTimeInput.value = '';
-               multiBellNameInput.value = '';
-               multiBellSoundInput.value = 'ellisBell.mp3'; // Reset to default
-               
-               // Uncheck all checkboxes
-               document.querySelectorAll('.multi-schedule-check:checked').forEach(cb => cb.checked = false);
+                multiBellTimeInput.value = '';
+                multiBellNameInput.value = '';
+                multiBellSoundInput.value = 'ellisBell.mp3'; // Reset to default
+                
+                document.querySelectorAll('.multi-schedule-check:checked').forEach(cb => cb.checked = false);
 
-               // Hide status message after a delay
-               setTimeout(() => {
+                setTimeout(() => {
                    multiAddStatus.classList.add('hidden');
-               }, 3000);
+                }, 3000);
  
             } catch (error) {
                 console.error("Error in multi-add batch:", error);
@@ -1433,31 +1349,33 @@
             }
         }
 
-        // FIXED: Removed diff markers
        // --- NEW: Google Auth Functions ---
        async function signInWithGoogle() {
            const provider = new GoogleAuthProvider();
            try {
-               // This will trigger the onAuthStateChanged listener
-               await signInWithPopup(auth, provider); // <-- REVERTED
-               // await signInWithRedirect(auth, provider); // <-- OLD
+               await signInWithRedirect(auth, provider);
            } catch (error) {
                console.error("Google Sign-In Error:", error);
-               // If user closes popup, do nothing. They are still on the auth screen.
-               if (error.code === 'auth/popup-closed-by-user' && !auth.currentUser) {
-                   console.log("Popup closed, user cancelled sign-in.");
-                   // Do nothing, just stay on the auth screen.
-                   // MODIFIED: Show the overlay again if auth fails
-                   audioOverlay.classList.remove('hidden');
-                   statusElement.textContent = "Sign-in cancelled. Please try again.";
-               }
+               statusElement.textContent = "Error signing in. Please try again.";
+               welcomeOverlay.classList.remove('hidden');
            }
        }
+
+       async function signInAnon() {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Anonymous Sign-In Error:", error);
+                statusElement.textContent = "Error signing in. Please try again.";
+                welcomeOverlay.classList.remove('hidden');
+            }
+       }
+
 
        async function signOutUser() {
            try {
                await signOut(auth);
-               // onAuthStateChanged will handle the rest
+               // onAuthStateChanged will handle the rest (showing welcome overlay)
            } catch (error) {
                console.error("Sign Out Error:", error);
            }
@@ -1465,59 +1383,27 @@
 
 
         // --- Admin Mode ---
-        // MODIFIED: Simplified toggle function
         function toggleAdminMode() {
             if (document.body.classList.contains('admin-mode')) {
                 document.body.classList.remove('admin-mode');
                 adminToggleBtn.textContent = 'Toggle Admin';
             } else {
-                // We can only get here if the button is enabled (i.e., user is admin)
                 document.body.classList.add('admin-mode');
                 adminToggleBtn.textContent = 'Exit Admin';
             }
         }
 
-        // REMOVED: handleAdminLogin function is no longer needed
-
-        // --- NEW: Start App Function ---
-        // MODIFIED: This is now the main entry point
-        async function startApp(authFunction) {
-            try {
-                // Start Tone *first* as it requires a direct user gesture
-                await Tone.start();
-                console.log("AudioContext started.");
-                setupSynths();
-                audioOverlay.classList.add('hidden');
-                statusElement.textContent = "Connecting...";
-                
-                // Start the clock
-                if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
-                clockAnimationId = requestAnimationFrame(updateClock);
-                
-                // Now, initialize Firebase (this is the *first* time)
-                await initFirebase();
-                
-                // Now, attempt to sign in
-                await authFunction();
-
-            } catch (e) {
-                console.error("App start failed:", e);
-                // Show some error to the user on the overlay?
-                statusElement.textContent = "Error starting audio. Please refresh.";
-                audioOverlay.classList.remove('hidden'); // Show overlay again if it failed
-            }
-        }
-
         // --- Init and Event Listeners ---
         function init() {
-            // Call initFirebase immediately to set up auth state listener
-            // MODIFIED: DO NOT call initFirebase here. It's called by startApp.
-            // initFirebase();
+            // NEW: Init Firebase first thing
+            initFirebase();
 
             // NEW: Auth button listeners
-            googleStartBtn.addEventListener('click', () => startApp(signInWithGoogle));
-            // MODIFIED: Pass a function that *calls* signInAnonymously with the auth object
-            anonymousStartBtn.addEventListener('click', () => startApp(() => signInAnonymously(auth)));
+            googleStartBtn.addEventListener('click', signInWithGoogle);
+            anonymousStartBtn.addEventListener('click', signInAnon);
+            
+            // NEW: Audio start button
+            startAudioBtn.addEventListener('click', startAudio);
 
             // Schedule selection
             scheduleSelector.addEventListener('change', () => {
@@ -1549,14 +1435,12 @@
             multiAddBellForm.addEventListener('submit', handleMultiAddSubmit);
             multiAddCancelBtn.addEventListener('click', () => {
                 addBellModal.classList.add('hidden');
-                // FIXED: Removed diff markers
-               multiAddBellForm.reset();
-               multiBellSoundInput.value = 'ellisBell.mp3'; // Reset to default
-               multiAddStatus.classList.add('hidden'); // Hide status
+                multiAddBellForm.reset();
+                multiBellSoundInput.value = 'ellisBell.mp3'; // Reset to default
+                multiAddStatus.classList.add('hidden'); // Hide status
             });
            
-            // FIXED: Removed diff markers
-           // NEW: Multi-Select Buttons
+            // NEW: Multi-Select Buttons
            multiSelectAllBtn.addEventListener('click', () => {
                document.querySelectorAll('.multi-schedule-check').forEach(cb => cb.checked = true);
            });
@@ -1573,8 +1457,8 @@
             linkedEditThisOnly.addEventListener('click', () => handleLinkedEdit(false));
             linkedEditApply.addEventListener('click', () => handleLinkedEdit(true));
 
-           // Signout Button
-           signOutBtn.addEventListener('click', signOutUser);
+            // Signout Button
+            signOutBtn.addEventListener('click', signOutUser);
 
             // Sound previews
             previewCustomSoundBtn.addEventListener('click', () => playBell(customSoundInput.value));
