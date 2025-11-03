@@ -28,21 +28,22 @@
             font-family: 'Century Gothic', 'Questrial', sans-serif;
         }
         /* Styles for Admin Controls */
-        /* Hide admin controls and shared delete buttons by default */
-        .admin-control, #combined-bell-list .delete-btn {
+        /* Hide admin controls and shared delete/edit buttons by default */
+        .admin-control, #combined-bell-list .delete-btn, #combined-bell-list .edit-btn {
             display: none;
         }
         /* When body has .admin-mode, show them */
         body.admin-mode .admin-control {
-            /* Use a consistent display type, block for these containers */
             display: block; 
         }
-        /* Show shared delete buttons in admin mode */
-        body.admin-mode #combined-bell-list .delete-btn {
-            display: inline-block; /* The buttons were inline */
+        /* Show shared delete/edit buttons in admin mode */
+        body.admin-mode #combined-bell-list .delete-btn,
+        body.admin-mode #combined-bell-list .edit-btn {
+            display: inline-block;
         }
-        /* Always show custom delete buttons */
-        #combined-bell-list .delete-custom-btn {
+        /* Always show custom delete/edit buttons */
+        #combined-bell-list .delete-custom-btn,
+        #combined-bell-list .edit-custom-btn {
             display: inline-block;
         }
     </style>
@@ -114,6 +115,64 @@
             </div>
         </form>
     </div>
+
+    <!-- NEW: Edit Bell Modal -->
+    <div id="edit-bell-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <form id="edit-bell-form" class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg">
+            <h3 class="text-2xl font-medium mb-6">Edit Bell</h3>
+            
+            <!-- Bell Details -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="edit-bell-time" class="block text-sm font-medium text-gray-700">Time (HH:MM:SS)</label>
+                    <input type="time" id="edit-bell-time" step="1" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="edit-bell-name" class="block text-sm font-medium text-gray-700">Bell Name</label>
+                    <input type="text" id="edit-bell-name" placeholder="e.g. 1st Period End" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div>
+                <label for="edit-bell-sound" class="block text-sm font-medium text-gray-700">Sound</label>
+                <select id="edit-bell-sound" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="Bell">Bell</option>
+                    <option value="Chime">Chime</option>
+                    <option value="Beep">Beep</option>
+                    <option value="Alarm">Alarm</option>
+                    <option value="ellisBell.mp3">Ellis Bell</option>
+                </select>
+            </div>
+            
+            <p id="edit-bell-status" class="text-blue-600 text-sm mt-4 hidden"></p>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" id="edit-bell-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+                <button type="submit" id="edit-bell-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save Changes</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- NEW: Confirm Linked Edit Modal -->
+    <div id="confirm-linked-edit-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] hidden">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg">
+            <h3 class="text-xl font-medium mb-4">Update Linked Schedules?</h3>
+            <p class="text-gray-700 mb-4">This bell was found in other schedules. Do you want to apply your edit to them as well?</p>
+            
+            <p class="text-sm font-medium text-gray-700 mb-2">Schedules containing this bell:</p>
+            <div id="linked-schedule-list" class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <!-- Linked schedules will be injected here -->
+            </div>
+            
+            <p id="linked-edit-status" class="text-blue-600 text-sm mt-4 hidden"></p>
+
+            <div class="mt-6 flex flex-col sm:flex-row justify-end gap-3">
+                <button id="linked-edit-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</Object>
+                <button id="linked-edit-this-only" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">Update This Schedule Only</button>
+                <button id="linked-edit-apply" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Apply to All Selected</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- NEW: Confirm Delete Schedule Modal -->
     <div id="confirm-delete-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden">
@@ -244,7 +303,7 @@
 
     </div>
 
-    <!-- Firebase and App Logic -->
+        <!-- Firebase and App Logic -->
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -290,6 +349,24 @@
         const multiAddSubmitBtn = document.getElementById('multi-add-submit');
         const multiAddStatus = document.getElementById('multi-add-status');
 
+        // NEW: Edit Bell Modal
+        const editBellModal = document.getElementById('edit-bell-modal');
+        const editBellForm = document.getElementById('edit-bell-form');
+        const editBellTimeInput = document.getElementById('edit-bell-time');
+        const editBellNameInput = document.getElementById('edit-bell-name');
+        const editBellSoundInput = document.getElementById('edit-bell-sound');
+        const editBellCancelBtn = document.getElementById('edit-bell-cancel');
+        const editBellSubmitBtn = document.getElementById('edit-bell-submit');
+        const editBellStatus = document.getElementById('edit-bell-status');
+
+        // NEW: Linked Edit Modal
+        const confirmLinkedEditModal = document.getElementById('confirm-linked-edit-modal');
+        const linkedScheduleList = document.getElementById('linked-schedule-list');
+        const linkedEditStatus = document.getElementById('linked-edit-status');
+        const linkedEditCancel = document.getElementById('linked-edit-cancel');
+        const linkedEditThisOnly = document.getElementById('linked-edit-this-only');
+        const linkedEditApply = document.getElementById('linked-edit-apply');
+
         // NEW: Create/Delete Schedule
         const createScheduleForm = document.getElementById('create-schedule-form');
         const newScheduleNameInput = document.getElementById('new-schedule-name');
@@ -313,6 +390,10 @@
         let synths = {}; // To hold Tone.js synthesizers AND players
         let lastBellRingTime = null; // To prevent duplicate rings
         
+        // NEW: State for editing bells
+        let currentEditingBell = null; // Stores { time, name, sound, type } of the bell being edited
+        let linkedEditData = null; // Stores data for the linked edit confirmation
+
         // Use the Project ID from your config for the Firestore data path
         const appId = "ellisbell-c185c"; 
 
@@ -477,6 +558,7 @@
                 const label = isShared ? '' : '(custom)';
                 
                 const deleteButtonClass = isShared ? 'delete-btn' : 'delete-custom-btn'; 
+                const editButtonClass = isShared ? 'edit-btn' : 'edit-custom-btn'; 
 
                 bellDiv.className = "flex items-center justify-between p-4 border-b border-gray-200 last:border-b-0";
                 
@@ -491,10 +573,16 @@
                             </span>
                         </div>
                     </div>
-                    <button data-time="${bell.time}" data-type="${bell.type}" 
-                            class="${deleteButtonClass} text-red-500 hover:text-red-700 font-medium transition-colors">
-                        Delete
-                    </button>
+                    <div class="flex-shrink-0">
+                        <button data-time="${bell.time}" data-name="${bell.name || 'Untitled'}" data-sound="${bell.sound}" data-type="${bell.type}"
+                                class="${editButtonClass} text-blue-600 hover:text-blue-800 font-medium transition-colors mr-3">
+                            Edit
+                        </button>
+                        <button data-time="${bell.time}" data-type="${bell.type}" 
+                                class="${deleteButtonClass} text-red-500 hover:text-red-700 font-medium transition-colors">
+                            Delete
+                        </button>
+                    </div>
                 `;
                 combinedBellListElement.appendChild(bellDiv);
             });
@@ -714,15 +802,15 @@
 
             await Promise.all(promises); // Wait for all updates
 
+            // UPDATED: Don't hide modal, just clear inputs and show success
             multiAddStatus.textContent = `Done. Added to ${successCount} schedules. Skipped ${skippedCount} (due to duplicate times).`;
             multiAddSubmitBtn.disabled = false;
+            multiBellTimeInput.value = '';
+            multiBellNameInput.value = '';
             
-            // Clear form and hide modal after a delay
+            // Clear status after 2 seconds
             setTimeout(() => {
-                addBellModal.classList.add('hidden');
                 multiAddStatus.classList.add('hidden');
-                multiBellTimeInput.value = '';
-                multiBellNameInput.value = '';
             }, 2000);
         }
         
@@ -793,30 +881,208 @@
         // Single delete handler for the combined list
         async function handleDeleteFromCombinedList(e) {
             const button = e.target.closest('button');
-            if (!button || !button.dataset.type) return; // Not a delete button
+            if (!button) return;
 
-            const time = button.dataset.time;
-            const type = button.dataset.type;
+            // Handle Delete
+            if (button.dataset.type && button.classList.contains('delete-btn') || button.classList.contains('delete-custom-btn')) {
+                const time = button.dataset.time;
+                const type = button.dataset.type;
 
-            if (type === 'shared') {
-                const isAdmin = document.body.classList.contains('admin-mode');
-                if (!isAdmin) return;
-                
-                const index = localSchedule.findIndex(bell => bell.time === time);
-                if (index > -1) {
-                    localSchedule.splice(index, 1);
-                    renderCombinedList(); // Optimistic update
-                    await updateActiveScheduleBells(); // Push to cloud
-                }
-            } else if (type === 'custom') {
-                const index = customBells.findIndex(bell => bell.time === time);
-                if (index > -1) {
-                    customBells.splice(index, 1);
-                    saveCustomBells(); // Save to local storage
-                    renderCombinedList(); // Update UI
+                if (type === 'shared') {
+                    // ... (delete logic as before)
+                    const isAdmin = document.body.classList.contains('admin-mode');
+                    if (!isAdmin) return;
+                    
+                    const index = localSchedule.findIndex(bell => bell.time === time);
+                    if (index > -1) {
+                        localSchedule.splice(index, 1);
+                        renderCombinedList(); // Optimistic update
+                        await updateActiveScheduleBells(); // Push to cloud
+                    }
+                } else if (type === 'custom') {
+                    // ... (delete logic as before)
+                    const index = customBells.findIndex(bell => bell.time === time);
+                    if (index > -1) {
+                        customBells.splice(index, 1);
+                        saveCustomBells(); // Save to local storage
+                        renderCombinedList(); // Update UI
+                    }
                 }
             }
+
+            // NEW: Handle Edit
+            if (button.dataset.type && (button.classList.contains('edit-btn') || button.classList.contains('edit-custom-btn'))) {
+                // Store the original data of the bell being edited
+                currentEditingBell = {
+                    time: button.dataset.time,
+                    name: button.dataset.name,
+                    sound: button.dataset.sound,
+                    type: button.dataset.type
+                };
+                
+                // Pre-fill and show the edit modal
+                editBellTimeInput.value = currentEditingBell.time;
+                editBellNameInput.value = currentEditingBell.name;
+                editBellSoundInput.value = currentEditingBell.sound;
+                editBellStatus.classList.add('hidden');
+                editBellModal.classList.remove('hidden');
+            }
         }
+
+        // NEW: Handle saving the edit from the modal
+        async function handleSaveEditBell(e) {
+            e.preventDefault();
+            if (!currentEditingBell) return;
+
+            const newBellData = {
+                time: editBellTimeInput.value,
+                name: editBellNameInput.value,
+                sound: editBellSoundInput.value
+            };
+
+            const originalBellData = {
+                time: currentEditingBell.time,
+                name: currentEditingBell.name,
+                sound: currentEditingBell.sound
+            };
+            
+            // Check if data actually changed
+            if (newBellData.time === originalBellData.time && 
+                newBellData.name === originalBellData.name &&
+                newBellData.sound === originalBellData.sound) {
+                editBellStatus.textContent = "No changes detected.";
+                editBellStatus.classList.remove('hidden');
+                return;
+            }
+
+            editBellSubmitBtn.disabled = true;
+
+            // --- Logic for CUSTOM bell ---
+            if (currentEditingBell.type === 'custom') {
+                const index = customBells.findIndex(b => b.time === originalBellData.time);
+                if (index > -1) {
+                    customBells[index] = newBellData; // Replace with new data
+                    saveCustomBells();
+                    renderCombinedList();
+                }
+                editBellModal.classList.add('hidden');
+                editBellSubmitBtn.disabled = false;
+                currentEditingBell = null;
+                return;
+            }
+
+            // --- Logic for SHARED bell (more complex) ---
+            if (currentEditingBell.type === 'shared') {
+                editBellStatus.textContent = "Checking for linked bells...";
+                editBellStatus.classList.remove('hidden');
+
+                // Find other schedules that have this *exact original* bell
+                const matchedSchedules = await findSchedulesWithBell(originalBellData);
+                
+                // Store all data needed for the final confirmation step
+                linkedEditData = {
+                    originalBell: originalBellData,
+                    newBell: newBellData,
+                    matchedSchedules: matchedSchedules // Array of {id, name}
+                };
+
+                if (matchedSchedules.length > 0) {
+                    // Matches found! Show the "linked edit" modal
+                    renderLinkedScheduleList(matchedSchedules);
+                    linkedEditStatus.classList.add('hidden');
+                    confirmLinkedEditModal.classList.remove('hidden');
+                    editBellModal.classList.add('hidden'); // Hide the edit modal
+                } else {
+                    // No matches. Just apply to this one schedule.
+                    await applyLinkedEdit([activeScheduleId], originalBellData, newBellData);
+                    editBellModal.classList.add('hidden');
+                }
+                
+                editBellSubmitBtn.disabled = false;
+                currentEditingBell = null;
+            }
+        }
+
+        // NEW: Finds all schedules (except the active one) that contain an exact bell
+        async function findSchedulesWithBell(bellToFind) {
+            const matches = [];
+            // Check all schedules *except* the currently active one
+            const otherSchedules = allSchedules.filter(s => s.id !== activeScheduleId);
+            
+            const promises = otherSchedules.map(async (schedule) => {
+                const scheduleRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', schedule.id);
+                try {
+                    const docSnap = await getDoc(scheduleRef);
+                    if (docSnap.exists()) {
+                        const bells = docSnap.data().bells || [];
+                        const found = bells.some(b => 
+                            b.time === bellToFind.time &&
+                            b.name === bellToFind.name &&
+                            b.sound === bellToFind.sound
+                        );
+                        if (found) {
+                            matches.push({ id: schedule.id, name: schedule.name });
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error checking schedule ${schedule.id}:`, error);
+                }
+            });
+
+            await Promise.all(promises);
+            return matches; // Returns array of {id, name}
+        }
+
+        // NEW: Renders the list of schedules for the linked edit modal
+        function renderLinkedScheduleList(matchedSchedules) {
+            linkedScheduleList.innerHTML = '';
+            // Add the *current* schedule to the list (always checked and disabled)
+            const currentSchedule = allSchedules.find(s => s.id === activeScheduleId);
+            linkedScheduleList.innerHTML += `
+                <div class="flex items-center">
+                    <input type="checkbox" id="linked-check-${currentSchedule.id}" value="${currentSchedule.id}" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked disabled>
+                    <label for="linked-check-${currentSchedule.id}" class="ml-3 block text-sm font-medium text-gray-700">${currentSchedule.name} (current)</label>
+                </div>
+            `;
+            // Add all other matched schedules
+            matchedSchedules.forEach(schedule => {
+                linkedScheduleList.innerHTML += `
+                    <div class="flex items-center">
+                        <input type="checkbox" id="linked-check-${schedule.id}" value="${schedule.id}" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked>
+                        <label for="linked-check-${schedule.id}" class="ml-3 block text-sm font-medium text-gray-700">${schedule.name}</label>
+                    </div>
+                `;
+            });
+        }
+        
+        // NEW: Performs the final "find/replace" batch write
+        async function applyLinkedEdit(scheduleIds, originalBell, newBell) {
+            const batch = writeBatch(db);
+            
+            const promises = scheduleIds.map(async (id) => {
+                const scheduleRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', id);
+                try {
+                    // We MUST read the doc inside the transaction/batch loop
+                    const docSnap = await getDoc(scheduleRef);
+                    if (docSnap.exists()) {
+                        const bells = docSnap.data().bells || [];
+                        // Find and replace the original bell
+                        const newBells = bells.map(b => 
+                            (b.time === originalBell.time && b.name === originalBell.name && b.sound === originalBell.sound) 
+                            ? newBell 
+                            : b
+                        );
+                        batch.update(scheduleRef, { bells: newBells });
+                    }
+                } catch (error) {
+                    console.error(`Error updating doc ${id} in batch:`, error);
+                }
+            });
+
+            await Promise.all(promises); // Wait for all reads
+            await batch.commit(); // Commit all writes
+        }
+
 
         // UPDATED: To save bell name
         async function handleAddCustomBell(e) {
@@ -995,8 +1261,48 @@
         });
         multiAddBellForm.addEventListener('submit', handleAddBellToMultiple);
 
+        // NEW: Edit Bell Modal Listeners
+        editBellForm.addEventListener('submit', handleSaveEditBell);
+        editBellCancelBtn.addEventListener('click', () => {
+            editBellModal.classList.add('hidden');
+            currentEditingBell = null;
+        });
+
+        // NEW: Linked Edit Modal Listeners
+        linkedEditCancel.addEventListener('click', () => {
+            confirmLinkedEditModal.classList.add('hidden');
+            linkedEditData = null;
+        });
+
+        linkedEditThisOnly.addEventListener('click', async () => {
+            if (!linkedEditData) return;
+            linkedEditStatus.textContent = "Applying to this schedule only...";
+            linkedEditStatus.classList.remove('hidden');
+
+            const { originalBell, newBell } = linkedEditData;
+            await applyLinkedEdit([activeScheduleId], originalBell, newBell);
+            
+            confirmLinkedEditModal.classList.add('hidden');
+            linkedEditData = null;
+        });
+
+        linkedEditApply.addEventListener('click', async () => {
+            if (!linkedEditData) return;
+            linkedEditStatus.textContent = "Applying to all selected schedules...";
+            linkedEditStatus.classList.remove('hidden');
+
+            const { originalBell, newBell } = linkedEditData;
+            // Get all checked IDs
+            const checkedBoxes = linkedScheduleList.querySelectorAll('input[type="checkbox"]:checked');
+            const targetScheduleIds = Array.from(checkedBoxes).map(cb => cb.value);
+
+            await applyLinkedEdit(targetScheduleIds, originalBell, newBell);
+
+            confirmLinkedEditModal.classList.add('hidden');
+            linkedEditData = null;
+        });
+
     </script>
 </body>
 </html>
-
 
