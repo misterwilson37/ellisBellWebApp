@@ -62,19 +62,7 @@
         </button>
     </div>
 
-    <!-- Admin Password Modal -->
-    <div id="admin-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden">
-        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-sm">
-            <h3 class="text-xl font-medium mb-4">Admin Access</h3>
-            <label for="admin-password" class="block text-sm font-medium text-gray-700">Password</label>
-            <input type="password" id="admin-password" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <p id="admin-error" class="text-red-500 text-sm mt-2 hidden">Incorrect password.</p>
-            <div class="mt-6 flex justify-end gap-3">
-                <button id="admin-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
-                <button id="admin-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Login</button>
-            </div>
-        </div>
-    </div>
+    <!-- Admin Password Modal - REMOVED -->
 
     <!-- NEW: Add Bell to Multiple Schedules Modal -->
     <div id="add-bell-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden">
@@ -265,7 +253,8 @@
         <div class="bg-white p-6 rounded-xl shadow-md mb-8">
             <div class="flex justify-between items-center mb-2">
                 <label for="schedule-selector" class="block text-lg font-medium text-gray-700">Active Shared Schedule</label>
-                <button id="admin-toggle" class="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 transition-colors">
+                <!-- MODIFIED: Disabled by default, enabled via JS for admins -->
+                <button id="admin-toggle" class="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 transition-colors opacity-50 cursor-not-allowed" disabled title="Sign in to see admin options">
                     Toggle Admin
                 </button>
             </div>
@@ -403,11 +392,13 @@
         const scheduleSelector = document.getElementById('schedule-selector');
         const scheduleTitle = document.getElementById('schedule-title');
         const adminToggleBtn = document.getElementById('admin-toggle');
-        const adminModal = document.getElementById('admin-modal');
-        const adminPasswordInput = document.getElementById('admin-password');
-        const adminSubmitBtn = document.getElementById('admin-submit');
-        const adminCancelBtn = document.getElementById('admin-cancel');
-        const adminError = document.getElementById('admin-error');
+        
+        // REMOVED: Admin Modal Elements
+        // const adminModal = document.getElementById('admin-modal');
+        // const adminPasswordInput = document.getElementById('admin-password');
+        // const adminSubmitBtn = document.getElementById('admin-submit');
+        // const adminCancelBtn = document.getElementById('admin-cancel');
+        // const adminError = document.getElementById('admin-error');
         
         // Custom Bell Form
         const addCustomBellForm = document.getElementById('add-custom-bell-form');
@@ -479,6 +470,12 @@
        // NEW: Auth Buttons
        const googleSignInBtn = document.getElementById('google-signin-btn');
        const signOutBtn = document.getElementById('signout-btn');
+
+       // NEW: Admin Email List
+       const ADMIN_EMAIL_LIST = [
+           'jacob.v.wilson@gmail.com'
+           // Add more emails here in the future
+       ];
 
         // --- App State ---
         let db, auth;
@@ -816,6 +813,23 @@
                            userIdElement.textContent = `Signed in as: ${user.displayName || user.email}`;
                        }
  
+                        // **** NEW ADMIN CHECK LOGIC ****
+                        if (ADMIN_EMAIL_LIST.includes(user.email)) {
+                            console.log("Admin user detected:", user.email);
+                            adminToggleBtn.disabled = false;
+                            adminToggleBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                            adminToggleBtn.title = "Toggle administrator controls";
+                        } else {
+                            console.log("Standard user detected.");
+                            adminToggleBtn.disabled = true;
+                            adminToggleBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                            adminToggleBtn.title = "Admin access required";
+                            // Also, ensure they are not in admin mode if they were somehow
+                            document.body.classList.remove('admin-mode');
+                            adminToggleBtn.textContent = 'Toggle Admin';
+                        }
+                        // **** END NEW ADMIN LOGIC ****
+
                          // This is the main entry point after auth
                          
                          // Setup collection ref now that we have db and appId
@@ -838,6 +852,14 @@
                        googleSignInBtn.classList.remove('hidden');
                        signOutBtn.classList.add('hidden');
                        userIdElement.textContent = "Not signed in. Click 'Sign in' to start.";
+
+                        // **** NEW: Disable admin toggle on sign-out ****
+                        adminToggleBtn.disabled = true;
+                        adminToggleBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        adminToggleBtn.title = "Sign in to see admin options";
+                        document.body.classList.remove('admin-mode');
+                        adminToggleBtn.textContent = 'Toggle Admin';
+                        // **** END NEW LOGIC ****
 
                        // Clear schedule
                        localSchedule = [];
@@ -1418,30 +1440,19 @@
 
 
         // --- Admin Mode ---
+        // MODIFIED: Simplified toggle function
         function toggleAdminMode() {
             if (document.body.classList.contains('admin-mode')) {
                 document.body.classList.remove('admin-mode');
                 adminToggleBtn.textContent = 'Toggle Admin';
             } else {
-                // Show password prompt
-                adminModal.classList.remove('hidden');
+                // We can only get here if the button is enabled (i.e., user is admin)
+                document.body.classList.add('admin-mode');
+                adminToggleBtn.textContent = 'Exit Admin';
             }
         }
 
-        function handleAdminLogin(e) {
-            e.preventDefault();
-            // Simple hardcoded password.
-            // This is NOT secure, but suitable for this type of local-first app.
-            if (adminPasswordInput.value === 'admin123') {
-                document.body.classList.add('admin-mode');
-                adminToggleBtn.textContent = 'Exit Admin';
-                adminModal.classList.add('hidden');
-                adminError.classList.add('hidden');
-                adminPasswordInput.value = '';
-            } else {
-                adminError.classList.remove('hidden');
-            }
-        }
+        // REMOVED: handleAdminLogin function is no longer needed
 
         // --- Init and Event Listeners ---
         function init() {
@@ -1480,15 +1491,16 @@
             
             // Admin controls
             adminToggleBtn.addEventListener('click', toggleAdminMode);
-            adminSubmitBtn.addEventListener('click', handleAdminLogin);
-            adminPasswordInput.addEventListener('keydown', (e) => {
-                if(e.key === 'Enter') handleAdminLogin(e);
-            });
-            adminCancelBtn.addEventListener('click', () => {
-                adminModal.classList.add('hidden');
-                adminError.classList.add('hidden');
-                adminPasswordInput.value = '';
-            });
+            // REMOVED: Admin modal listeners
+            // adminSubmitBtn.addEventListener('click', handleAdminLogin);
+            // adminPasswordInput.addEventListener('keydown', (e) => {
+            //     if(e.key === 'Enter') handleAdminLogin(e);
+            // });
+            // adminCancelBtn.addEventListener('click', () => {
+            //     adminModal.classList.add('hidden');
+            //     adminError.classList.add('hidden');
+            //     adminPasswordInput.value = '';
+            // });
 
             // Forms
             addCustomBellForm.addEventListener('submit', handleAddCustomBell);
