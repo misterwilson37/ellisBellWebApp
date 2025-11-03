@@ -503,6 +503,7 @@
         let activeScheduleListenerUnsubscribe = null; // Function to stop listening to old schedule
         let synths = {}; // To hold Tone.js synthesizers
         let lastBellRingTime = null; // To prevent duplicate rings
+        let clockAnimationId = null; // NEW: To control the clock loop
         
         // NEW: State for editing bells
         let currentEditingBell = null; // Stores { time, name, sound, type, originalTime, originalName } of the bell being edited
@@ -620,7 +621,7 @@
             // Update next bell time
             updateNextBellMessage(currentTimeHHMMSS);
 
-            requestAnimationFrame(updateClock); // Loop
+            clockAnimationId = requestAnimationFrame(updateClock); // Loop
         }
         
         // * This was the truncated function. Now completed. *
@@ -779,7 +780,11 @@
         }
 
         // --- Firebase Logic ---
+        // MODIFIED: This function is now called from startApp, not init
         async function initFirebase() {
+            // Only initialize once
+            if (auth) return; 
+
             try {
                 // WARNING: Your API key is visible in this client-side code.
                 // For production, ensure you have appropriate App Check and Firestore Security Rules.
@@ -808,44 +813,17 @@
                 
                 // Enable debug logging for Firestore
                 setLogLevel('Debug');
-
-                /* --- REMOVED: Check for redirect result ---
-                try {
-                    const result = await getRedirectResult(auth);
-                    if (result) {
-                        // This means the user is just returning from Google sign-in
-                        console.log("Google redirect result found:", result.user.email);
-                        // We need to start Tone and hide the overlay, just like startApp does
-                        await Tone.start();
-                        console.log("AudioContext started.");
-                        setupSynths();
-                        audioOverlay.classList.add('hidden');
-                        statusElement.textContent = "Connecting...";
-                        
-                        // Start the clock
-                        requestAnimationFrame(updateClock);
-                        
-                        // onAuthStateChanged will handle the rest
-                    } else {
-                        // No redirect result, this is a normal page load.
-                        // The auth overlay will remain visible (if user is not signed in)
-                        // and wait for a button click.
-                    }
-                } catch (error) {
-                    console.error("Error checking redirect result:", error);
-                }
-                --- End removed logic --- */
-
                 
                 // MODIFIED: Handle Google Auth vs. Anonymous
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
+                        // This now runs for *both* Google and Anonymous users after successful sign-in
+                        // And *after* Tone.start() and clock start has been handled by startApp
                         console.log("User is signed in:", user.uid);
                         userId = user.uid;
 
                        // Update UI based on auth state
                        document.body.classList.add('authenticated');
-                       // googleSignInBtn.classList.add('hidden'); // <-- REMOVED: This button no longer exists here
                        signOutBtn.classList.remove('hidden');
 
                        if (user.isAnonymous) {
@@ -887,10 +865,16 @@
 
                      } else {
                         console.log("User is signed out.");
-                       // User is signed out, update UI
-                         userId = null;
+                        // User is signed out, update UI
+                        userId = null;
+                        
+                        // NEW: Stop the clock
+                        if (clockAnimationId) {
+                            cancelAnimationFrame(clockAnimationId);
+                            clockAnimationId = null;
+                        }
+
                        document.body.classList.remove('authenticated');
-                       // googleSignInBtn.classList.remove('hidden'); // <-- REMOVED: This button no longer exists here
                        signOutBtn.classList.add('hidden');
                        userIdElement.textContent = "Not signed in. Click 'Sign in' to start.";
 
@@ -913,19 +897,6 @@
                        audioOverlay.classList.remove('hidden');
                      }
                  });
-
-                 // REMOVED: Initial anonymous sign-in
-                 /*
-                 if (!auth.currentUser) {
-                    console.log("No user, signing in anonymously.");
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (authError) {
-                        console.error("Initial anonymous sign-in failed:", authError);
-                        statusElement.textContent = "Authentication failed.";
-                    }
-                 }
-                 */
 
             } catch (error) {
                 console.error("Firebase Init Error:", error);
@@ -1476,6 +1447,9 @@
                if (error.code === 'auth/popup-closed-by-user' && !auth.currentUser) {
                    console.log("Popup closed, user cancelled sign-in.");
                    // Do nothing, just stay on the auth screen.
+                   // MODIFIED: Show the overlay again if auth fails
+                   audioOverlay.classList.remove('hidden');
+                   statusElement.textContent = "Sign-in cancelled. Please try again.";
                }
            }
        }
@@ -1483,9 +1457,7 @@
        async function signOutUser() {
            try {
                await signOut(auth);
-               // onAuthStateChanged will handle the rest, but we will also
-               // sign the user in anonymously right away so the app keeps working.
-               // await signInAnonymously(auth); // <-- REMOVED THIS LINE
+               // onAuthStateChanged will handle the rest
            } catch (error) {
                console.error("Sign Out Error:", error);
            }
@@ -1508,8 +1480,10 @@
         // REMOVED: handleAdminLogin function is no longer needed
 
         // --- NEW: Start App Function ---
+        // MODIFIED: This is now the main entry point
         async function startApp(authFunction) {
             try {
+                // Start Tone *first* as it requires a direct user gesture
                 await Tone.start();
                 console.log("AudioContext started.");
                 setupSynths();
@@ -1517,47 +1491,32 @@
                 statusElement.textContent = "Connecting...";
                 
                 // Start the clock
-                requestAnimationFrame(updateClock);
+                if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
+                clockAnimationId = requestAnimationFrame(updateClock);
+                
+                // Now, initialize Firebase (this is the *first* time)
+                await initFirebase();
                 
                 // Now, attempt to sign in
                 await authFunction();
 
             } catch (e) {
-                console.error("Tone.start failed:", e);
-                console.error("Could not start audio. Please refresh and try again.");
+                console.error("App start failed:", e);
                 // Show some error to the user on the overlay?
                 statusElement.textContent = "Error starting audio. Please refresh.";
+                audioOverlay.classList.remove('hidden'); // Show overlay again if it failed
             }
         }
 
         // --- Init and Event Listeners ---
         function init() {
             // Call initFirebase immediately to set up auth state listener
-            initFirebase();
+            // MODIFIED: DO NOT call initFirebase here. It's called by startApp.
+            // initFirebase();
 
-            // REMOVED: Old startAudioBtn listener
-            /*
-            startAudioBtn.addEventListener('click', () => {
-                Tone.start().then(() => {
-                    console.log("AudioContext started.");
-                    setupSynths();
-                    audioOverlay.classList.add('hidden');
-                    statusElement.textContent = "Connecting...";
-                    // Start Firebase
-                    initFirebase();
-                    // Start the clock
-                    requestAnimationFrame(updateClock);
-                }).catch(e => {
-                    console.error("Tone.start failed:", e);
-                    console.error("Could not start audio. Please refresh and try again.");
-                });
-            });
-            */
-            
             // NEW: Auth button listeners
             googleStartBtn.addEventListener('click', () => startApp(signInWithGoogle));
             anonymousStartBtn.addEventListener('click', () => startApp(signInAnonymously));
-
 
             // Schedule selection
             scheduleSelector.addEventListener('change', () => {
@@ -1566,16 +1525,6 @@
             
             // Admin controls
             adminToggleBtn.addEventListener('click', toggleAdminMode);
-            // REMOVED: Admin modal listeners
-            // adminSubmitBtn.addEventListener('click', handleAdminLogin);
-            // adminPasswordInput.addEventListener('keydown', (e) => {
-            //     if(e.key === 'Enter') handleAdminLogin(e);
-            // });
-            // adminCancelBtn.addEventListener('click', () => {
-            //     adminModal.classList.add('hidden');
-            //     adminError.classList.add('hidden');
-            //     adminPasswordInput.value = '';
-            // });
 
             // Forms
             addCustomBellForm.addEventListener('submit', handleAddCustomBell);
@@ -1623,9 +1572,7 @@
             linkedEditThisOnly.addEventListener('click', () => handleLinkedEdit(false));
             linkedEditApply.addEventListener('click', () => handleLinkedEdit(true));
 
-            // REMOVED: googleSignInBtn listener
-           // NEW: Auth Button Listeners
-           // googleSignInBtn.addEventListener('click', signInWithGoogle);
+           // Signout Button
            signOutBtn.addEventListener('click', signOutUser);
 
             // Sound previews
