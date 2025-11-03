@@ -237,15 +237,21 @@
             </div>
         </header>
 
-        <!-- Live Clock -->
+        <!-- MODIFIED: This card now shows countdown AND current time -->
         <div class="bg-white p-6 md:p-10 rounded-xl shadow-md mb-8">
-            <div id="live-clock" class="text-6xl md:text-8xl font-bold text-center text-gray-800 tabular-nums">
-                00:00:00
+            <!-- MODIFIED: This is now the countdown -->
+            <div id="countdown-display" class="text-6xl md:text-8xl font-bold text-center text-gray-800 tabular-nums">
+                00:00
+            </div>
+            <!-- NEW: Added smaller current time -->
+            <div id="live-clock" class="text-2xl font-medium text-center text-gray-500 tabular-nums mt-4">
+                Current Time: 00:00:00
             </div>
             <div class="text-center text-gray-500 text-lg mt-2">
                 Status: <span id="status-message" class="font-medium text-gray-700">Initializing...</span>
             </div>
             <div class="text-center text-gray-500 text-sm mt-1">
+                <!-- This text will now be set by updateClock -->
                 Next Bell: <span id="next-bell-message" class="font-medium text-gray-700">--:--</span>
             </div>
         </div>
@@ -400,6 +406,9 @@
         const googleStartBtn = document.getElementById('google-start-btn');
         const anonymousStartBtn = document.getElementById('anonymous-start-btn');
         
+        // MODIFIED: Renamed to countdownElement
+        const countdownElement = document.getElementById('countdown-display');
+        // NEW: Added live-clock element
         const clockElement = document.getElementById('live-clock');
         const statusElement = document.getElementById('status-message');
         const nextBellElement = document.getElementById('next-bell-message');
@@ -589,6 +598,30 @@
         }
 
         // --- Clock and Bell Logic ---
+
+        // NEW: Helper function to find the next bell
+        function findNextBell(currentTimeHHMMSS) {
+            const allBells = [...localSchedule, ...customBells];
+            if (allBells.length === 0) {
+                return null;
+            }
+            
+            let upcomingBells = allBells.filter(bell => bell.time > currentTimeHHMMSS);
+            
+            let nextBell;
+            if (upcomingBells.length > 0) {
+                // Sort upcoming bells and take the soonest one
+                upcomingBells.sort((a, b) => a.time.localeCompare(b.time));
+                nextBell = upcomingBells[0];
+            } else {
+                // If no bells are left today, find the *first* bell of "tomorrow"
+                allBells.sort((a, b) => a.time.localeCompare(b.time));
+                nextBell = allBells[0]; // This will be the first bell in the sorted list
+            }
+            return nextBell;
+        }
+
+        // MODIFIED: updateClock now handles countdown logic
         function updateClock() {
             const now = new Date();
             const hours = String(now.getHours()).padStart(2, '0');
@@ -597,8 +630,52 @@
 
             const currentTimeHHMMSS = `${hours}:${minutes}:${seconds}`;
 
-            clockElement.textContent = currentTimeHHMMSS;
+            // 1. Update the (small) live clock
+            clockElement.textContent = `Current Time: ${currentTimeHHMMSS}`;
 
+            // 2. Find the next bell
+            const nextBell = findNextBell(currentTimeHHMMSS);
+
+            if (nextBell) {
+                // 3. Calculate countdown
+                const [h, m, s] = nextBell.time.split(':').map(Number);
+                const nextBellDate = new Date();
+                nextBellDate.setHours(h, m, s, 0);
+
+                let totalMilliseconds = nextBellDate.getTime() - now.getTime();
+
+                // If diff is negative, bell is tomorrow
+                if (totalMilliseconds < 0) {
+                    nextBellDate.setDate(nextBellDate.getDate() + 1);
+                    totalMilliseconds = nextBellDate.getTime() - now.getTime();
+                }
+
+                // Format the countdown string
+                let totalSeconds = Math.max(0, Math.floor(totalMilliseconds / 1000));
+                let cdHours = Math.floor(totalSeconds / 3600);
+                totalSeconds %= 3600;
+                let cdMinutes = Math.floor(totalSeconds / 60);
+                let cdSeconds = totalSeconds % 60;
+                
+                let countdownString;
+                if (cdHours > 0) {
+                    countdownString = `${String(cdHours).padStart(2, '0')}:${String(cdMinutes).padStart(2, '0')}:${String(cdSeconds).padStart(2, '0')}`;
+                } else {
+                    countdownString = `${String(cdMinutes).padStart(2, '0')}:${String(cdSeconds).padStart(2, '0')}`;
+                }
+
+                // 4. Update UI
+                countdownElement.textContent = countdownString;
+                nextBellElement.textContent = `${nextBell.name} at ${nextBell.time}`;
+
+            } else {
+                // No bells scheduled
+                countdownElement.textContent = "--:--";
+                nextBellElement.textContent = "No bells scheduled";
+            }
+            
+
+            // Check if a bell should ring
             const allBells = [...localSchedule, ...customBells];
             const bellToRing = allBells.find(bell => bell.time === currentTimeHHMMSS);
             
@@ -612,7 +689,8 @@
                 if (isAudioReady) statusElement.textContent = "Monitoring...";
             }
 
-            updateNextBellMessage(currentTimeHHMMSS);
+            // REMOVED: This logic is now at the top of updateClock
+            // updateNextBellMessage(currentTimeHHMMSS); 
             clockAnimationId = requestAnimationFrame(updateClock); // Loop
         }
         
@@ -630,25 +708,8 @@
             }
         }
 
-        function updateNextBellMessage(currentTimeHHMMSS) {
-            const allBells = [...localSchedule, ...customBells];
-            let upcomingBells = allBells.filter(bell => bell.time > currentTimeHHMMSS);
-            
-            let nextBell;
-            if (upcomingBells.length > 0) {
-                upcomingBells.sort((a, b) => a.time.localeCompare(b.time));
-                nextBell = upcomingBells[0];
-            } else {
-                allBells.sort((a, b) => a.time.localeCompare(b.time));
-                nextBell = allBells[0]; 
-            }
-
-            if (nextBell) {
-                nextBellElement.textContent = `${nextBell.name} at ${nextBell.time}`;
-            } else {
-                nextBellElement.textContent = "No bells scheduled";
-            }
-        }
+        // REMOVED: updateNextBellMessage(currentTimeHHMMSS)
+        // This function is no longer needed as its logic is in findNextBell and updateClock
 
         // --- Render Functions ---
         function renderCombinedList() {
@@ -820,7 +881,12 @@
                         // Load data
                         schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
                         await loadAllSchedules();
-                        statusElement.textContent = "Connected. Monitoring bells...";
+                        if (isAudioReady) {
+                            statusElement.textContent = "Connected. Monitoring bells...";
+                        } else {
+                            statusElement.textContent = "Connected. Waiting for audio.";
+                        }
+
 
                      } else {
                         console.log("User is signed out.");
@@ -854,14 +920,6 @@
                         // audioOverlay.classList.add('hidden'); // REMOVED
                      }
                  });
-
-                // --- Handle Redirect Result ---
-                // REMOVED: No longer using redirect
-                // try {
-                //     const result = await getRedirectResult(auth);
-                // } catch (error) {
-                //     console.error("GetRedirectResult Error:", error);
-                // }
 
             } catch (error) {
                 console.error("Firebase Init Error:", error);
