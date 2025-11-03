@@ -170,7 +170,8 @@
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- DOM Elements ---
@@ -212,7 +213,9 @@
         let activeScheduleListenerUnsubscribe = null; // Function to stop listening to old schedule
         let synths = {}; // To hold Tone.js synthesizers AND players
         let lastBellRingTime = null; // To prevent duplicate rings
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'school-bell-default';
+        
+        // Use the Project ID from your config for the Firestore data path
+        const appId = "ellisbell-c185c"; 
 
         // --- Default Schedules (for seeding) ---
         const SCHEDULE_DEFAULTS = [
@@ -655,20 +658,31 @@
 
         // --- Initialization ---
         async function initialize() {
+            
+            // Your web app's Firebase configuration (from your snippet)
+            const firebaseConfig = {
+              apiKey: "AIzaSyDfo45UBu-pR8nqMQhVlS_QgyYZ2kzBdvM",
+              authDomain: "ellisbell-c185c.firebaseapp.com",
+              projectId: "ellisbell-c185c",
+              storageBucket: "ellisbell-c185c.firebasestorage.app",
+              messagingSenderId: "441560045695",
+              appId: "1:441560045695:web:94e51a006663404b8f474a",
+              measurementId: "G-D6TX4YRBSD"
+            };
+
             // 1. Initialize Firebase
-            const firebaseConfig = JSON.parse(__firebase_config);
             const app = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(app); // Added analytics
             db = getFirestore(app);
             auth = getAuth(app);
             setLogLevel('debug'); // Enable debug logging for firestore
             
-            // 2. Sign in
+            // 2. Sign in (using anonymous auth)
+            // The app requires auth for Firestore rules, so we'll sign in anonymously.
             try {
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
+                console.log("Signed in anonymously.");
+
             } catch (error) {
                 console.error("Firebase Auth Error:", error);
                 statusElement.textContent = "Auth Error. Check console.";
@@ -681,6 +695,7 @@
                     userId = user.uid;
                     userIdElement.textContent = userId;
 
+                    // Setup collection ref using the hardcoded appId
                     schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
 
                     await checkAndSeedSchedules();
@@ -751,5 +766,3 @@
     </script>
 </body>
 </html>
-
-
