@@ -1300,7 +1300,7 @@
                 updateClock(); // Start the live clock
                 
                 audioOverlay.style.display = 'none'; // Hide overlay
-            } catch (error)
+            } catch (error) { // <-- This opening brace was missing
                 console.error("Error starting Tone.js:", error);
                 audioOverlay.innerHTML = `<div class="text-white text-2xl text-center">Sorry, audio could not be started.<br>Please refresh and try again.</div>`;
             }
@@ -1399,5 +1399,6 @@ D: Multi-Add Bell Modal Listeners
     </script>
 </body>
 </html>
+
 
 
