@@ -386,8 +386,11 @@
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         // import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js"; // Not used
-        // FIXED: Removed diff markers
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        /*
+        // FIXED: Reverted back to signInWithPopup, removed signInWithRedirect/getRedirectResult
+        */
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel, deleteDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- DOM Elements ---
@@ -806,7 +809,7 @@
                 // Enable debug logging for Firestore
                 setLogLevel('Debug');
 
-                // --- NEW: Check for redirect result ---
+                /* --- REMOVED: Check for redirect result ---
                 try {
                     const result = await getRedirectResult(auth);
                     if (result) {
@@ -831,9 +834,9 @@
                 } catch (error) {
                     console.error("Error checking redirect result:", error);
                 }
-                // --- End new logic ---
+                --- End removed logic --- */
 
-                // FIXED: Removed diff markers
+                
                 // MODIFIED: Handle Google Auth vs. Anonymous
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
@@ -1465,22 +1468,15 @@
            const provider = new GoogleAuthProvider();
            try {
                // This will trigger the onAuthStateChanged listener
-               // await signInWithPopup(auth, provider); // <-- OLD
-               await signInWithRedirect(auth, provider); // <-- NEW
+               await signInWithPopup(auth, provider); // <-- REVERTED
+               // await signInWithRedirect(auth, provider); // <-- OLD
            } catch (error) {
                console.error("Google Sign-In Error:", error);
                // If user closes popup, do nothing. They are still on the auth screen.
-               /* REMOVED FALLBACK
                if (error.code === 'auth/popup-closed-by-user' && !auth.currentUser) {
-                   console.log("Popup closed, signing in anonymously.");
-                   try {
-                       await signInAnonymously(auth);
-                   } catch (anonError) {
-                       console.error("Anonymous sign-in failed:", anonError);
-                       statusElement.textContent = "Authentication failed.";
-                   }
+                   console.log("Popup closed, user cancelled sign-in.");
+                   // Do nothing, just stay on the auth screen.
                }
-               */
            }
        }
 
@@ -1649,8 +1645,4 @@
     </script>
 </body>
 </html>
-
-
-
-
 
