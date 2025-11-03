@@ -99,13 +99,18 @@
                     <option value="Chime">Chime</option>
                     <option value="Beep">Beep</option>
                     <option value="Alarm">Alarm</option>
-                    <option value="ellisBell.mp3">Ellis Bell</option> <!-- Added custom bell -->
+                    <option value="ellisBell.mp3" selected>Ellis Bell</option> <!-- Added custom bell AND selected -->
                 </select>
             </div>
 
             <!-- Schedule Checkboxes -->
             <div class="mt-6">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Select Schedules to Add to:</label>
+                <!-- NEW: Select All/None buttons -->
+                <div class="flex gap-2 mb-2">
+                    <button type="button" id="multi-select-all" class="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">Select All</button>
+                    <button type="button" id="multi-select-none" class="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300">Select None</button>
+                </div>
                 <div id="multi-schedule-list-container" class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <!-- Checkboxes will be dynamically injected here -->
                     <p class="text-gray-500">Loading schedules...</p>
@@ -210,7 +215,26 @@
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-blue-700">School Bell</h1>
             <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
-            <p class="text-sm text-gray-500 mt-2">Your User ID (for reference): <code id="userIdDisplay" class="bg-gray-200 px-2 py-1 rounded">...</code></p>
+            <!-- NEW: Auth Buttons -->
+            <div class="mt-4 flex flex-col sm:flex-row justify-center items-center gap-4">
+                <button id="google-signin-btn" class="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2 bg-white text-gray-700 font-medium rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <svg class="w-5 h-5" viewBox="0 0 48 48">
+                        <path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l8.28 6.42C12.92 13.9 18.06 9.5 24 9.5z"></path>
+                        <path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.42-4.55H24v8.51h12.8c-.57 2.73-2.2 5.08-4.79 6.69l7.38 5.71C44.97 36.3 46.98 30.8 46.98 24.55z"></path>
+                        <!-- FIXED: BROKEN SVG PATHS -->
+                        <path fill="#FBBC05" d="M10.84 28.71C10.22 26.9 9.83 24.99 9.83 23c0-1.99.39-3.9 1.01-5.71L2.56 10.8C.9 14.28 0 18.48 0 23c0 4.52.9 8.72 2.56 12.2l8.28-6.49z"></path>
+                        <path fill="#EA4335" d="M24 48c5.4 0 10.32-1.62 14.34-4.38l-7.38-5.71C28.71 40.5 26.47 42.1 24 42.1c-5.94 0-11.08-4.4-12.96-10.28L2.56 38.2C6.51 46.04 14.62 48 24 48z"></path>
+                        <path fill="none" d="M0 0h48v48H0z"></path>
+                    </svg>
+                    Sign in with Google
+                </button>
+                <button id="signout-btn" class="w-full sm:w-auto px-6 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors hidden">
+                    Sign Out
+                </button>
+            </div>
+            <p class="text-sm text-gray-500 mt-4">
+                <code id="userIdDisplay" class="bg-gray-200 px-2 py-1 rounded">...</code>
+            </p>
         </header>
 
         <!-- Live Clock -->
@@ -365,7 +389,8 @@
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         // import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js"; // Not used
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // FIXED: Removed diff markers
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel, deleteDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- DOM Elements ---
@@ -413,6 +438,9 @@
         const multiAddCancelBtn = document.getElementById('multi-add-cancel');
         const multiAddSubmitBtn = document.getElementById('multi-add-submit');
         const multiAddStatus = document.getElementById('multi-add-status');
+        // FIXED: Removed diff markers
+       const multiSelectAllBtn = document.getElementById('multi-select-all');
+       const multiSelectNoneBtn = document.getElementById('multi-select-none');
 
         // NEW: Edit Bell Modal
         const editBellModal = document.getElementById('edit-bell-modal');
@@ -446,6 +474,11 @@
         const confirmDeleteBellText = document.getElementById('confirm-delete-bell-text');
         const deleteBellConfirmBtn = document.getElementById('delete-bell-confirm');
         const deleteBellCancelBtn = document.getElementById('delete-bell-cancel');
+
+        // FIXED: Removed diff markers
+       // NEW: Auth Buttons
+       const googleSignInBtn = document.getElementById('google-signin-btn');
+       const signOutBtn = document.getElementById('signout-btn');
 
         // --- App State ---
         let db, auth;
@@ -765,38 +798,55 @@
                 // Enable debug logging for Firestore
                 setLogLevel('Debug');
 
-                // MODIFIED: Use simplified auth flow
+                // FIXED: Removed diff markers
+                // MODIFIED: Handle Google Auth vs. Anonymous
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         console.log("User is signed in:", user.uid);
                         userId = user.uid;
-                        userIdElement.textContent = userId;
 
-                        // This is the main entry point after auth
-                        
-                        // Setup collection ref now that we have db and appId
-                        // Data is public, so we use the 'public' path
-                        // FIXED: Added 'data' segment to path
-                        schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
-                        
-                        await loadAllSchedules();
-                        
-                        statusElement.textContent = "Connected. Monitoring bells...";
+                       // Update UI based on auth state
+                       document.body.classList.add('authenticated');
+                       googleSignInBtn.classList.add('hidden');
+                       signOutBtn.classList.remove('hidden');
 
-                    } else {
-                        console.log("User is signed out. Authenticating...");
-                        userId = null;
-                        userIdElement.textContent = "Authenticating...";
-                        
-                        // MODIFIED: Sign in anonymously
-                        try {
-                            await signInAnonymously(auth);
-                        } catch (authError) {
-                            console.error("Anonymous sign-in failed:", authError);
-                            statusElement.textContent = "Authentication failed.";
-                        }
-                    }
-                });
+                       if (user.isAnonymous) {
+                           userIdElement.textContent = `Anonymous ID: ${user.uid}`;
+                       } else {
+                           userIdElement.textContent = `Signed in as: ${user.displayName || user.email}`;
+                       }
+ 
+                         // This is the main entry point after auth
+                         
+                         // Setup collection ref now that we have db and appId
+                         // Data is public, so we use the 'public' path
+                         // FIXED: Added 'data' segment to path
+                         
+                       // Only load schedules once
+                       if (!schedulesCollectionRef) {
+                           schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
+                           await loadAllSchedules();
+                       }
+                         
+                         statusElement.textContent = "Connected. Monitoring bells...";
+
+                     } else {
+                        console.log("User is signed out.");
+                       // User is signed out, update UI
+                         userId = null;
+                       document.body.classList.remove('authenticated');
+                       googleSignInBtn.classList.remove('hidden');
+                       signOutBtn.classList.add('hidden');
+                       userIdElement.textContent = "Not signed in. Click 'Sign in' to start.";
+
+                       // Clear schedule
+                       localSchedule = [];
+                       allSchedules = [];
+                       renderScheduleSelector();
+                       renderCombinedList();
+                       statusElement.textContent = "Please sign in to load schedules.";
+                     }
+                 });
 
             } catch (error) {
                 console.error("Firebase Init Error:", error);
@@ -1310,12 +1360,21 @@
                 // Refresh allSchedules data
                 await loadAllSchedules();
                 
-                setTimeout(() => {
-                    addBellModal.classList.add('hidden');
-                    multiAddStatus.classList.add('hidden');
-                    multiAddBellForm.reset();
-                }, 2000);
+                // FIXED: Removed diff markers
+               // MODIFIED: Don't close modal. Reset form instead.
+               // multiAddBellForm.reset(); // This doesn't reset select
+               multiBellTimeInput.value = '';
+               multiBellNameInput.value = '';
+               multiBellSoundInput.value = 'ellisBell.mp3'; // Reset to default
+               
+               // Uncheck all checkboxes
+               document.querySelectorAll('.multi-schedule-check:checked').forEach(cb => cb.checked = false);
 
+               // Hide status message after a delay
+               setTimeout(() => {
+                   multiAddStatus.classList.add('hidden');
+               }, 3000);
+ 
             } catch (error) {
                 console.error("Error in multi-add batch:", error);
                 multiAddStatus.textContent = "An error occurred.";
@@ -1323,6 +1382,39 @@
                 multiAddSubmitBtn.disabled = false;
             }
         }
+
+        // FIXED: Removed diff markers
+       // --- NEW: Google Auth Functions ---
+       async function signInWithGoogle() {
+           const provider = new GoogleAuthProvider();
+           try {
+               // This will trigger the onAuthStateChanged listener
+               await signInWithPopup(auth, provider);
+           } catch (error) {
+               console.error("Google Sign-In Error:", error);
+               // If user closes popup, sign in anonymously so app still works
+               if (error.code === 'auth/popup-closed-by-user' && !auth.currentUser) {
+                   console.log("Popup closed, signing in anonymously.");
+                   try {
+                       await signInAnonymously(auth);
+                   } catch (anonError) {
+                       console.error("Anonymous sign-in failed:", anonError);
+                       statusElement.textContent = "Authentication failed.";
+                   }
+               }
+           }
+       }
+
+       async function signOutUser() {
+           try {
+               await signOut(auth);
+               // onAuthStateChanged will handle the rest, but we will also
+               // sign the user in anonymously right away so the app keeps working.
+               await signInAnonymously(auth);
+           } catch (error) {
+               console.error("Sign Out Error:", error);
+           }
+       }
 
 
         // --- Admin Mode ---
@@ -1364,6 +1456,16 @@
                     initFirebase();
                     // Start the clock
                     requestAnimationFrame(updateClock);
+
+                    // FIXED: Removed diff markers
+                   // Trigger anonymous sign-in if no user
+                   // This ensures the app works even if they don't click Google Sign-In
+                   if (!auth.currentUser) {
+                       signInAnonymously(auth).catch(err => {
+                           console.error("Initial anonymous sign-in failed:", err);
+                           statusElement.textContent = "Authentication failed.";
+                       });
+                   }
                 }).catch(e => {
                     console.error("Tone.start failed:", e);
                     // MODAL FIX: Replace alert
@@ -1410,8 +1512,20 @@
             multiAddBellForm.addEventListener('submit', handleMultiAddSubmit);
             multiAddCancelBtn.addEventListener('click', () => {
                 addBellModal.classList.add('hidden');
-                multiAddBellForm.reset();
+                // FIXED: Removed diff markers
+               multiAddBellForm.reset();
+               multiBellSoundInput.value = 'ellisBell.mp3'; // Reset to default
+               multiAddStatus.classList.add('hidden'); // Hide status
             });
+           
+            // FIXED: Removed diff markers
+           // NEW: Multi-Select Buttons
+           multiSelectAllBtn.addEventListener('click', () => {
+               document.querySelectorAll('.multi-schedule-check').forEach(cb => cb.checked = true);
+           });
+           multiSelectNoneBtn.addEventListener('click', () => {
+               document.querySelectorAll('.multi-schedule-check').forEach(cb => cb.checked = false);
+           });
             
             // Edit Bell Modal
             editBellForm.addEventListener('submit', handleEditBellSubmit);
@@ -1421,6 +1535,11 @@
             linkedEditCancel.addEventListener('click', closeLinkedEditModal);
             linkedEditThisOnly.addEventListener('click', () => handleLinkedEdit(false));
             linkedEditApply.addEventListener('click', () => handleLinkedEdit(true));
+
+            // FIXED: Removed diff markers
+           // NEW: Auth Button Listeners
+           googleSignInBtn.addEventListener('click', signInWithGoogle);
+           signOutBtn.addEventListener('click', signOutUser);
 
             // Sound previews
             previewCustomSoundBtn.addEventListener('click', () => playBell(customSoundInput.value));
@@ -1439,5 +1558,4 @@
     </script>
 </body>
 </html>
-
 
