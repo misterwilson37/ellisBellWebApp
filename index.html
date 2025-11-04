@@ -1782,14 +1782,14 @@
             // Linked Edit Modal
             linkedEditCancel.addEventListener('click', closeLinkedEditModal);
             linkedEditThisOnly.addEventListener('click', () => handleLinkedEdit(false));
-            linkedEditApply.addEventListener('click', ()_=> handleLinkedEdit(true));
+            linkedEditApply.addEventListener('click', () => handleLinkedEdit(true));
 
             // Signout Button
             signOutBtn.addEventListener('click', signOutUser);
 
             // Sound previews
-            previewCustomSoundBtn.addEventListener('click', ()_=> playBell(customSoundInput.value));
-            previewSharedSoundBtn.addEventListener('click', ()_=> playBell(sharedSoundInput.value));
+            previewCustomSoundBtn.addEventListener('click', () => playBell(customSoundInput.value));
+            previewSharedSoundBtn.addEventListener('click', () => playBell(sharedSoundInput.value));
             
             // Event delegation for bell list
             combinedBellListElement.addEventListener('click', handleBellListClick);
