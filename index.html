@@ -506,7 +506,7 @@
         let activeScheduleListenerUnsubscribe = null; 
         let synths = {}; 
         let lastBellRingTime = null; 
-        let clockAnimationId = null; 
+        let clockIntervalId = null; // MODIFIED: Renamed from clockAnimationId
         
         let currentEditingBell = null; 
         let linkedEditData = null; 
@@ -529,8 +529,9 @@
                 // NEW: Check if user is already signed in, and if so, start the clock
                 if (auth.currentUser) {
                     console.log("Audio ready, user signed in. Starting clock.");
-                    if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
-                    clockAnimationId = requestAnimationFrame(updateClock);
+                    if (clockIntervalId) clearInterval(clockIntervalId); // MODIFIED
+                    updateClock(); // Run once immediately
+                    clockIntervalId = setInterval(updateClock, 1000); // MODIFIED
                 }
 
             } catch (e) {
@@ -710,7 +711,7 @@
                 if (isAudioReady) statusElement.textContent = "Monitoring...";
             }
 
-            clockAnimationId = requestAnimationFrame(updateClock); // Loop
+            // REMOVED: requestAnimationFrame was here. It's now handled by setInterval.
         }
         
         function ringBell(bell) {
@@ -873,8 +874,9 @@
                         } else {
                             // Audio is already ready, just start the clock
                             console.log("User signed in, audio ready. Starting clock.");
-                            if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
-                            clockAnimationId = requestAnimationFrame(updateClock);
+                            if (clockIntervalId) clearInterval(clockIntervalId); // MODIFIED
+                            updateClock(); // Run once immediately
+                            clockIntervalId = setInterval(updateClock, 1000); // MODIFIED
                         }
 
                         // Update UI
@@ -916,9 +918,9 @@
                         userId = null;
                         
                         // Stop clock
-                        if (clockAnimationId) {
-                            cancelAnimationFrame(clockAnimationId);
-                            clockAnimationId = null;
+                        if (clockIntervalId) { // MODIFIED
+                            clearInterval(clockIntervalId); // MODIFIED
+                            clockIntervalId = null; // MODIFIED
                         }
                         
                         // Reset UI
@@ -1554,6 +1556,7 @@
     </script>
 </body>
 </html>
+
 
 
 
