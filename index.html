@@ -518,6 +518,14 @@
                 setupSynths();
                 isAudioReady = true;
                 statusElement.textContent = "Audio ready. Monitoring bells...";
+
+                // NEW: Check if user is already signed in, and if so, start the clock
+                if (auth.currentUser) {
+                    console.log("Audio ready, user signed in. Starting clock.");
+                    if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
+                    clockAnimationId = requestAnimationFrame(updateClock);
+                }
+
             } catch (e) {
                 console.error("Audio start failed:", e);
                 statusElement.textContent = "Error starting audio. Please refresh.";
@@ -845,7 +853,7 @@
                 setLogLevel('Debug');
                 
                 // --- Handle Auth State Changes ---
-                onAuthStateChanged(auth, async (user) => {
+                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         console.log("User is signed in:", user.uid);
                         userId = user.uid;
@@ -853,10 +861,11 @@
                         
                         // Start the clock *after* user is signed in and audio is ready
                         if (isAudioReady) {
+                             console.log("User signed in, audio ready. Starting clock."); // Added log
                              if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
                              clockAnimationId = requestAnimationFrame(updateClock);
                         }
-                        // If audio is not ready, the sign-in function's .then() will start the clock
+                        // If audio is not ready, startAudio() will start the clock once it's ready
 
                         // Update UI
                         document.body.classList.add('authenticated');
@@ -1529,4 +1538,5 @@
     </script>
 </body>
 </html>
+
 
