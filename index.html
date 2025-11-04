@@ -78,6 +78,13 @@
         </div>
     </div>
 
+    <!-- NEW: Audio Start Overlay (for refresh) -->
+    <div id="audio-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 hidden">
+        <button id="start-audio-btn" class="px-8 py-4 bg-blue-600 text-white font-bold text-2xl rounded-lg shadow-lg hover:bg-blue-700 transition-colors">
+            Click to Start Audio
+        </button>
+    </div>
+
     <!-- NEW: Add Bell to Multiple Schedules Modal -->
     <div id="add-bell-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden">
         <form id="multi-add-bell-form" class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg">
@@ -397,8 +404,8 @@
 
         // --- DOM Elements ---
         const welcomeOverlay = document.getElementById('welcome-overlay');
-        // const audioOverlay = document.getElementById('audio-overlay'); // REMOVED
-        // const startAudioBtn = document.getElementById('start-audio-btn'); // REMOVED
+        const audioOverlay = document.getElementById('audio-overlay'); // RE-ADDED
+        const startAudioBtn = document.getElementById('start-audio-btn'); // RE-ADDED
         
         const googleStartBtn = document.getElementById('google-start-btn');
         const anonymousStartBtn = document.getElementById('anonymous-start-btn');
@@ -857,15 +864,18 @@
                     if (user) {
                         console.log("User is signed in:", user.uid);
                         userId = user.uid;
-                        welcomeOverlay.classList.add('hidden');
+                        welcomeOverlay.classList.add('hidden'); // User is in, hide welcome
                         
-                        // Start the clock *after* user is signed in and audio is ready
-                        if (isAudioReady) {
-                             console.log("User signed in, audio ready. Starting clock."); // Added log
-                             if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
-                             clockAnimationId = requestAnimationFrame(updateClock);
+                        // NEW: Check if audio is ready. If not, show audio start button.
+                        if (!isAudioReady) {
+                            console.log("User is signed in, but audio not ready. Showing audio start button.");
+                            audioOverlay.classList.remove('hidden');
+                        } else {
+                            // Audio is already ready, just start the clock
+                            console.log("User signed in, audio ready. Starting clock.");
+                            if (clockAnimationId) cancelAnimationFrame(clockAnimationId);
+                            clockAnimationId = requestAnimationFrame(updateClock);
                         }
-                        // If audio is not ready, startAudio() will start the clock once it's ready
 
                         // Update UI
                         document.body.classList.add('authenticated');
@@ -930,7 +940,7 @@
                        
                         // Show welcome overlay
                         welcomeOverlay.classList.remove('hidden');
-                        // audioOverlay.classList.add('hidden'); // REMOVED
+                        audioOverlay.classList.add('hidden'); // Hide audio overlay if signed out
                      }
                  });
 
@@ -1463,8 +1473,14 @@
             googleStartBtn.addEventListener('click', signInWithGoogle);
             anonymousStartBtn.addEventListener('click', signInAnon);
             
-            // REMOVED: Audio start button
-            // startAudioBtn.addEventListener('click', startAudio);
+            // NEW: Audio start button (for refresh)
+            startAudioBtn.addEventListener('click', () => {
+                startAudio().then(() => {
+                    audioOverlay.classList.add('hidden');
+                }).catch(e => {
+                    console.error("Manual audio start failed:", e);
+                });
+            });
 
             // Schedule selection
             scheduleSelector.addEventListener('change', () => {
@@ -1538,5 +1554,6 @@
     </script>
 </body>
 </html>
+
 
 
