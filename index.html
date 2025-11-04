@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ellis Web Bell 2.01</title>
+    <title>Ellis Web Bell 2.02</title>
     <!-- Using Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Using Tone.js for web audio -->
@@ -61,28 +61,8 @@
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans"> <!-- Added font-sans to apply tailwind default -->
 
-    <!-- NEW: Auth/Welcome Overlay -->
-    <div id="welcome-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div class="bg-white p-10 rounded-lg shadow-xl w-full max-w-md text-center">
-            <h2 class="text-3xl font-bold text-blue-700 mb-4">Welcome to the Ellis Web Bell</h2>
-            <p class="text-gray-600 mb-8">Please sign in to load and sync schedules.</p>
-            <div class="space-y-4">
-                <button id="google-start-btn" class="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 font-medium rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 transition-colors">
-                    <svg class="w-5 h-5" viewBox="0 0 48 48">
-                        <path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l8.28 6.42C12.92 13.9 18.06 9.5 24 9.5z"></path>
-                        <path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.42-4.55H24v8.51h12.8c-.57 2.73-2.2 5.08-4.79 6.69l7.38 5.71C44.97 36.3 46.98 30.8 46.98 24.55z"></path>
-                        <path fill="#FBBC05" d="M10.84 28.71C10.22 26.9 9.83 24.99 9.83 23c0-1.99.39-3.9 1.01-5.71L2.56 10.8C.9 14.28 0 18.48 0 23c0 4.52.9 8.72 2.56 12.2l8.28-6.49z"></path>
-                        <path fill="#EA4335" d="M24 48c5.4 0 10.32-1.62 14.34-4.38l-7.38-5.71C28.71 40.5 26.47 42.1 24 42.1c-5.94 0-11.08-4.4-12.96-10.28L2.56 38.2C6.51 46.04 14.62 48 24 48z"></path>
-                        <path fill="none" d="M0 0h48v48H0z"></path>
-                    </svg>
-                    Sign in with Google
-                </button>
-                <button id="anonymous-start-btn" class="w-full px-6 py-3 bg-gray-600 text-white font-medium rounded-lg shadow-md hover:bg-gray-700 transition-colors">
-                    Continue Anonymously
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- DELETED: Auth/Welcome Overlay -->
+    <!-- This overlay is no longer needed as auth is automatic -->
 
     <!-- NEW: Audio Start Overlay (for refresh) -->
     <div id="audio-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 hidden">
@@ -228,7 +208,7 @@
     <!-- Main Application -->
     <div class="container mx-auto max-w-2xl p-4 md:p-8">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 2.01</h1>
+            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 2.02</h1>
             <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
             
             <!-- MODIFIED: User info and signout button grouped -->
@@ -437,17 +417,14 @@
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         
-        // MODIFIED: Reverted to signInWithPopup
-        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signOut, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // MODIFIED: Added signInWithCustomToken
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signOut, signInWithPopup, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel, deleteDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- DOM Elements ---
-        const welcomeOverlay = document.getElementById('welcome-overlay');
-        const audioOverlay = document.getElementById('audio-overlay'); // RE-ADDED
-        const startAudioBtn = document.getElementById('start-audio-btn'); // RE-ADDED
-        
-        const googleStartBtn = document.getElementById('google-start-btn');
-        const anonymousStartBtn = document.getElementById('anonymous-start-btn');
+        // DELETED: welcomeOverlay and its buttons
+        const audioOverlay = document.getElementById('audio-overlay'); 
+        const startAudioBtn = document.getElementById('start-audio-btn'); 
         
         // MODIFIED: Renamed to countdownElement
         const countdownElement = document.getElementById('countdown-display');
@@ -543,10 +520,11 @@
         // NEW: Get config from the environment
         let firebaseConfig;
         try {
+            // This is the mandatory way to load the config.
             firebaseConfig = JSON.parse(__firebase_config);
         } catch (e) {
-            console.error("Firebase config not found or invalid. Using fallback.");
-            // Fallback for local testing (will not work for auth)
+            console.error("Firebase config not found or invalid. Using fallback for local testing.");
+            // Fallback for local testing (will not work for auth unless configured locally)
             firebaseConfig = {
                 apiKey: "LOCAL_FALLBACK_KEY",
                 authDomain: "LOCAL_FALLBACK_DOMAIN",
@@ -565,7 +543,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
+        const provider = new GoogleAuthProvider(); // Keep this in case we add "upgrade" later
 
         // Set this to 'debug' for verbose logging, or 'silent' to turn off
         // setLogLevel('debug');
@@ -574,7 +552,7 @@
         let currentUserId = null;
         let isAdmin = false;
         let isAppInitialized = false; // Prevents audio overlay on first load
-        let isAudioStarted = false; // RE-ADDED
+        let isAudioStarted = false; 
         let localCustomBells = [];
         let sharedSchedules = {}; // Holds all shared schedules
         let currentSharedScheduleId = null; // The ID of the currently selected shared schedule
@@ -1387,35 +1365,51 @@
 
         // --- Auth Functions ---
 
-        async function handleAnonymousSignIn() {
+        // DELETED: handleAnonymousSignIn()
+        // DELETED: handleGoogleSignIn()
+        
+        /**
+         * NEW: Performs the initial sign-in.
+         * This is called once on load and again after a sign-out.
+         */
+        async function initializeAuth() {
+            if (auth.currentUser) {
+                console.log("User already signed in.");
+                return;
+            }
+            
+            statusElement.textContent = "Authenticating...";
             try {
-                statusElement.textContent = "Signing in...";
-                await signInAnonymously(auth);
-                welcomeOverlay.classList.add('hidden');
+                if (typeof __initial_auth_token !== 'undefined') {
+                    console.log("Signing in with custom token...");
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    console.log("No custom token. Signing in anonymously...");
+                    await signInAnonymously(auth);
+                }
+                console.log("Initial auth complete.");
             } catch (e) {
-                console.error("Anonymous sign-in failed:", e);
-                statusElement.textContent = "Sign-in failed.";
+                console.error("Initial authentication failed:", e);
+                statusElement.textContent = "Authentication failed.";
             }
         }
         
-        async function handleGoogleSignIn() {
-            try {
-                statusElement.textContent = "Opening Google Sign-in...";
-                await signInWithPopup(auth, provider);
-                welcomeOverlay.classList.add('hidden');
-            } catch (e) {
-                console.error("Google sign-in failed:", e);
-                statusElement.textContent = "Google Sign-in failed.";
-            }
-        }
-        
+        /**
+         * Handles user sign-out.
+         */
         function handleSignOut() {
             signOut(auth).catch(e => console.error("Sign out failed:", e));
+            // The onAuthStateChanged listener will handle the rest.
         }
 
 
+        /**
+         * Sets up the listener for authentication state changes.
+         * This function controls the main app flow based on user status.
+         */
         function setupAuthListener() {
             onAuthStateChanged(auth, async (user) => {
+                // Reset admin state on any change
                 isAdmin = false;
                 document.body.classList.remove('admin-mode');
                 adminToggleBtn.classList.add('opacity-50', 'cursor-not-allowed');
@@ -1426,14 +1420,16 @@
                     // --- User is Signed In ---
                     currentUserId = user.uid;
                     
-                    let userDisplay = user.isAnonymous ? `Anonymous (${user.uid.substring(0, 6)})` : (user.email || user.displayName);
+                    // Display user info
+                    let userDisplay = user.isAnonymous ? `Anonymous (${user.uid.substring(0, 6)})` : (user.email || user.displayName || `User (${user.uid.substring(0, 6)})`);
                     userIdElement.textContent = `Signed in as: ${userDisplay}`;
                     signoutBtn.classList.remove('hidden');
                     
+                    // Show audio overlay if needed (on refresh)
                     if (isAppInitialized && !isAudioStarted) {
                         audioOverlay.classList.remove('hidden');
                     }
-                    welcomeOverlay.classList.add('hidden'); 
+                    // DELETED: Welcome overlay logic
                     
                     statusElement.textContent = "Loading schedules...";
 
@@ -1452,6 +1448,7 @@
                         console.error("Error checking admin status:", e);
                     }
                     
+                    // User is authenticated, initialize Firestore listeners
                     initializeFirestoreListeners();
                     
                 } else {
@@ -1459,19 +1456,24 @@
                     currentUserId = null;
                     isAdmin = false;
                     
-                    userIdElement.textContent = "Not signed in.";
+                    // Reset UI
+                    userIdElement.textContent = "Signed out. Re-authenticating...";
                     signoutBtn.classList.add('hidden');
-                    welcomeOverlay.classList.remove('hidden'); 
-                    audioOverlay.classList.add('hidden'); 
+                    audioOverlay.classList.add('hidden'); // Hide audio prompt
                     
-                    statusElement.textContent = "Please sign in.";
+                    statusElement.textContent = "Re-authenticating...";
                     
+                    // Clear all schedule data
                     sharedSchedules = {};
                     currentSharedScheduleId = null;
-                    populateScheduleSelector(); 
-                    updateAndRenderCombinedList(); 
+                    populateScheduleSelector(); // Will show "Loading..." or be empty
+                    updateAndRenderCombinedList(); // Will clear the list
+                    
+                    // NEW: Automatically sign back in
+                    await initializeAuth();
                 }
                 
+                // Mark that the initial auth check is done
                 isAppInitialized = true;
             });
         }
@@ -1785,11 +1787,15 @@
             loadCustomBells();
             loadMutedBells(); 
 
+            // NEW: Set up auth listener *before* trying to sign in
             setupAuthListener();
+            // NEW: Perform initial automatic sign-in
+            initializeAuth();
+            
+            // Set up other listeners
             setupBellListListeners();
             
-            googleStartBtn.addEventListener('click', handleGoogleSignIn);
-            anonymousStartBtn.addEventListener('click', handleAnonymousSignIn);
+            // DELETED: googleStartBtn and anonymousStartBtn listeners
             signoutBtn.addEventListener('click', handleSignOut);
             
             startAudioBtn.addEventListener('click', startAudioContext);
@@ -1861,3 +1867,4 @@
     </script>
 </body>
 </html>
+
