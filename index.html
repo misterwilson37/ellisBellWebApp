@@ -78,14 +78,6 @@
         </div>
     </div>
 
-    <!-- NEW: Audio Start Overlay (for redirect flow) - REMOVED -->
-    <!-- <div id="audio-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 hidden">
-        <button id="start-audio-btn" class="px-8 py-4 bg-blue-600 text-white font-bold text-2xl rounded-lg shadow-lg hover:bg-blue-700 transition-colors">
-            Click to Start Audio
-        </button>
-    </div> -->
-
-
     <!-- NEW: Add Bell to Multiple Schedules Modal -->
     <div id="add-bell-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 hidden">
         <form id="multi-add-bell-form" class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg">
@@ -239,20 +231,25 @@
 
         <!-- MODIFIED: This card now shows countdown AND current time -->
         <div class="bg-white p-6 md:p-10 rounded-xl shadow-md mb-8">
-            <!-- MODIFIED: This is now the countdown -->
-            <div id="countdown-display" class="text-6xl md:text-8xl font-bold text-center text-gray-800 tabular-nums">
-                00:00
+            <!-- NEW: Restructured countdown/clock -->
+            <div class="text-center">
+                <!-- Line 1: "The time is HH:MM:SS. There are" -->
+                <div id="live-clock-sentence" class="text-2xl font-medium text-gray-600 tabular-nums">
+                    Loading...
+                </div>
+                <!-- Line 2: "HH:MM:SS" (countdown) -->
+                <div id="countdown-display" class="text-6xl md:text-8xl font-bold text-gray-800 tabular-nums my-2">
+                    --:--
+                </div>
+                <!-- Line 3: "until XXBELLXX" -->
+                <div id="next-bell-sentence" class="text-2xl font-medium text-gray-600">
+                    until the next bell.
+                </div>
             </div>
-            <!-- NEW: Added smaller current time -->
-            <div id="live-clock" class="text-2xl font-medium text-center text-gray-500 tabular-nums mt-4">
-                Current Time: 00:00:00
-            </div>
-            <div class="text-center text-gray-500 text-lg mt-2">
+
+            <!-- Status messages remain -->
+            <div class="text-center text-gray-500 text-lg mt-6"> <!-- Added more margin -->
                 Status: <span id="status-message" class="font-medium text-gray-700">Initializing...</span>
-            </div>
-            <div class="text-center text-gray-500 text-sm mt-1">
-                <!-- This text will now be set by updateClock -->
-                Next Bell: <span id="next-bell-message" class="font-medium text-gray-700">--:--</span>
             </div>
         </div>
 
@@ -408,10 +405,10 @@
         
         // MODIFIED: Renamed to countdownElement
         const countdownElement = document.getElementById('countdown-display');
-        // NEW: Added live-clock element
-        const clockElement = document.getElementById('live-clock');
+        // NEW: Changed to point to the new sentence elements
+        const clockElement = document.getElementById('live-clock-sentence');
         const statusElement = document.getElementById('status-message');
-        const nextBellElement = document.getElementById('next-bell-message');
+        const nextBellElement = document.getElementById('next-bell-sentence');
         const userIdElement = document.getElementById('userIdDisplay');
         const scheduleSelector = document.getElementById('schedule-selector');
         const scheduleTitle = document.getElementById('schedule-title');
@@ -630,11 +627,11 @@
 
             const currentTimeHHMMSS = `${hours}:${minutes}:${seconds}`;
 
-            // 1. Update the (small) live clock
-            clockElement.textContent = `Current Time: ${currentTimeHHMMSS}`;
-
-            // 2. Find the next bell
+            // 1. Find the next bell
             const nextBell = findNextBell(currentTimeHHMMSS);
+
+            // 2. Update Line 1 ("The time is HH:MM:SS. There are")
+            clockElement.textContent = `The time is ${currentTimeHHMMSS}. There are`;
 
             if (nextBell) {
                 // 3. Calculate countdown
@@ -650,7 +647,7 @@
                     totalMilliseconds = nextBellDate.getTime() - now.getTime();
                 }
 
-                // Format the countdown string
+                // Format the countdown string WITH leading zero removal
                 let totalSeconds = Math.max(0, Math.floor(totalMilliseconds / 1000));
                 let cdHours = Math.floor(totalSeconds / 3600);
                 totalSeconds %= 3600;
@@ -659,23 +656,32 @@
                 
                 let countdownString;
                 if (cdHours > 0) {
-                    countdownString = `${String(cdHours).padStart(2, '0')}:${String(cdMinutes).padStart(2, '0')}:${String(cdSeconds).padStart(2, '0')}`;
+                    // H:MM:SS
+                    countdownString = `${cdHours}:${String(cdMinutes).padStart(2, '0')}:${String(cdSeconds).padStart(2, '0')}`;
+                } else if (cdMinutes > 0) {
+                    // M:SS
+                    countdownString = `${cdMinutes}:${String(cdSeconds).padStart(2, '0')}`;
                 } else {
-                    countdownString = `${String(cdMinutes).padStart(2, '0')}:${String(cdSeconds).padStart(2, '0')}`;
+                    // S
+                    countdownString = `${cdSeconds}`;
                 }
 
                 // 4. Update UI
+                // Line 2: "HH:MM:SS" (countdown)
                 countdownElement.textContent = countdownString;
-                nextBellElement.textContent = `${nextBell.name} at ${nextBell.time}`;
+                // Line 3: "until XXBELLXX"
+                nextBellElement.textContent = `until ${nextBell.name}`;
 
             } else {
                 // No bells scheduled
+                // Line 2: "--:--"
                 countdownElement.textContent = "--:--";
-                nextBellElement.textContent = "No bells scheduled";
+                // Line 3: "until the next bell."
+                nextBellElement.textContent = "until the next bell.";
             }
             
 
-            // Check if a bell should ring
+            // Check if a bell should ring (unchanged)
             const allBells = [...localSchedule, ...customBells];
             const bellToRing = allBells.find(bell => bell.time === currentTimeHHMMSS);
             
@@ -689,8 +695,6 @@
                 if (isAudioReady) statusElement.textContent = "Monitoring...";
             }
 
-            // REMOVED: This logic is now at the top of updateClock
-            // updateNextBellMessage(currentTimeHHMMSS); 
             clockAnimationId = requestAnimationFrame(updateClock); // Loop
         }
         
