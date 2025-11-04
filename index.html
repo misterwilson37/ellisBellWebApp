@@ -77,6 +77,11 @@
             background-color: #b91c1c; /* red-700 */
         }
 
+        /* Hide file input, style the button */
+        #import-file-input {
+            display: none;
+        }
+
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans"> <!-- Added font-sans to apply tailwind default -->
@@ -372,6 +377,43 @@
                     Delete Selected Schedule
                 </button>
             </div>
+
+            <!-- NEW: Import/Export -->
+            <div class="border-t pt-6 space-y-4">
+                <h4 class="text-lg font-medium text-gray-800">Backup & Restore</h4>
+                
+                <!-- Export -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Export Schedules</label>
+                    <button type="button" id="export-schedules-btn" class="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 transition-colors">
+                        Export All Schedules as JSON
+                    </button>
+                </div>
+
+                <!-- Import -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Import Schedules from JSON</label>
+                    <input type="file" id="import-file-input" accept="application/json">
+                    <button type="button" id="import-schedules-btn" class="w-full px-4 py-2 bg-gray-600 text-white font-medium rounded-lg shadow-md hover:bg-gray-700 transition-colors">
+                        Click to Select File and Import
+                    </button>
+                    <p id="import-status" class="text-blue-600 text-sm mt-2 hidden"></p>
+                </div>
+            </div>
+
+            <!-- NEW: Legacy Import -->
+            <div class="border-t pt-6 space-y-4">
+                <h4 class="text-lg font-medium text-gray-800">Legacy Data</h4>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Import from Old App ID</label>
+                    <p class="text-xs text-gray-500 mb-2">If your schedules are missing after an update, click this once to find and import them from the old database location.</p>
+                    <button type="button" id="legacy-import-btn" class="w-full px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg shadow-md hover:bg-yellow-700 transition-colors">
+                        Import from Old App ID
+                    </button>
+                    <p id="legacy-import-status" class="text-blue-600 text-sm mt-2 hidden"></p>
+                </div>
+            </div>
+
         </div>
 
 
@@ -525,13 +567,22 @@
         const confirmDeleteModal = document.getElementById('confirm-delete-modal');
         const confirmDeleteText = document.getElementById('confirm-delete-text');
         const deleteConfirmBtn = document.getElementById('delete-confirm');
-        const deleteCancelBtn = document.getElementById('delete-cancel'); // Added for completeness
+        const deleteCancelBtn = document.getElementById('delete-cancel'); 
 
         // NEW: Delete Bell Modal
         const confirmDeleteBellModal = document.getElementById('confirm-delete-bell-modal');
         const confirmDeleteBellText = document.getElementById('confirm-delete-bell-text');
         const deleteBellConfirmBtn = document.getElementById('delete-bell-confirm');
         const deleteBellCancelBtn = document.getElementById('delete-bell-cancel');
+
+        // NEW: Import/Export Elements
+        const exportSchedulesBtn = document.getElementById('export-schedules-btn');
+        const importFileInput = document.getElementById('import-file-input');
+        const importSchedulesBtn = document.getElementById('import-schedules-btn');
+        const importStatus = document.getElementById('import-status');
+        const legacyImportBtn = document.getElementById('legacy-import-btn');
+        const legacyImportStatus = document.getElementById('legacy-import-status');
+
 
         // --- App State ---
         let db, auth;
@@ -1643,6 +1694,145 @@
         }
 
 
+        // --- NEW: Import/Export Logic ---
+
+        function handleExportSchedules() {
+            if (allSchedules.length === 0) {
+                alert("No schedules to export.");
+                return;
+            }
+
+            const dataToExport = {
+                appId: appId, // Verify this on import
+                exportedAt: new Date().toISOString(),
+                schedules: allSchedules.map(s => ({ name: s.name, bells: s.bells })) // Export only name and bells
+            };
+
+            const jsonString = JSON.stringify(dataToExport, null, 2);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `school-bell-schedules-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function handleImportSchedules() {
+            // Trigger the hidden file input
+            importFileInput.click();
+        }
+
+        async function handleFileInputChange(e) {
+            const file = e.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            importStatus.textContent = "Reading file...";
+            importStatus.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const parsed = JSON.parse(event.target.result);
+                    if (parsed.appId !== appId) {
+                        throw new Error(`Invalid file. Expected appId '${appId}'.`);
+                    }
+                    if (!parsed.schedules || !Array.isArray(parsed.schedules)) {
+                        throw new Error("Invalid file format. 'schedules' array not found.");
+                    }
+
+                    await importData(parsed.schedules, importStatus);
+
+                } catch (error) {
+                    console.error("Import failed:", error);
+                    importStatus.textContent = `Error: ${error.message}`;
+                } finally {
+                    // Reset file input so the same file can be loaded again
+                    importFileInput.value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function handleLegacyImport() {
+            if (!confirm("This will import schedules from the old 'default-app-id'. This is a one-time operation. Continue?")) {
+                return;
+            }
+
+            legacyImportStatus.textContent = "Loading legacy schedules...";
+            legacyImportStatus.classList.remove('hidden');
+
+            try {
+                // Define the old, default path
+                const legacyCollectionRef = collection(db, 'artifacts', 'default-app-id', 'public', 'data', 'schedules');
+                const querySnapshot = await getDocs(legacyCollectionRef);
+                
+                const legacySchedules = querySnapshot.docs.map(doc => ({
+                    name: doc.data().name || "Unnamed Schedule",
+                    bells: doc.data().bells || []
+                }));
+
+                if (legacySchedules.length === 0) {
+                    legacyImportStatus.textContent = "No legacy schedules found.";
+                    return;
+                }
+
+                legacyImportStatus.textContent = `Found ${legacySchedules.length} legacy schedules. Importing...`;
+                await importData(legacySchedules, legacyImportStatus);
+
+            } catch (error) {
+                console.error("Legacy import failed:", error);
+                legacyImportStatus.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function importData(schedulesToImport, statusElement) {
+            statusElement.textContent = `Importing ${schedulesToImport.length} schedules...`;
+            
+            // Get the most up-to-date list of current schedules
+            await loadAllSchedules(); 
+            
+            const batch = writeBatch(db);
+            let newCount = 0;
+            let updatedCount = 0;
+
+            for (const schedule of schedulesToImport) {
+                if (!schedule.name) continue; // Skip schedules without a name
+
+                // Check if a schedule with this name *already exists*
+                const existingSchedule = allSchedules.find(s => s.name === schedule.name);
+                
+                const scheduleData = {
+                    name: schedule.name,
+                    bells: schedule.bells || []
+                };
+
+                if (existingSchedule) {
+                    // It exists, update it
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', existingSchedule.id);
+                    batch.update(docRef, scheduleData);
+                    updatedCount++;
+                } else {
+                    // It's new, add it
+                    const newDocRef = doc(collection(schedulesCollectionRef)); // Create a new doc with a new ID
+                    batch.set(newDocRef, scheduleData);
+                    newCount++;
+                }
+            }
+
+            await batch.commit();
+            statusElement.textContent = `Import complete! Added: ${newCount}, Updated: ${updatedCount}.`;
+            
+            // Reload all schedules to show the new data
+            await loadAllSchedules();
+        }
+
+
         // --- Init and Event Listeners ---
         function init() {
             // NEW: Init Firebase first thing
@@ -1683,6 +1873,12 @@
             // Delete Bell Modal
             deleteBellConfirmBtn.addEventListener('click', confirmDeleteBell);
             deleteBellCancelBtn.addEventListener('click', closeDeleteBellModal);
+
+            // NEW: Import/Export Listeners
+            exportSchedulesBtn.addEventListener('click', handleExportSchedules);
+            importSchedulesBtn.addEventListener('click', handleImportSchedules);
+            importFileInput.addEventListener('change', handleFileInputChange);
+            legacyImportBtn.addEventListener('click', handleLegacyImport);
 
             // Multi-Add Modal
             showAddBellModalBtn.addEventListener('click', showMultiAddModal);
