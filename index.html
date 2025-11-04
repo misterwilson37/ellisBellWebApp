@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ellis Web Bell 2.03</title>
+    <title>Ellis Web Bell 2.04</title>
     <!-- Using Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Using Tone.js for web audio -->
@@ -52,14 +52,7 @@
         /* NEW: Z-index for new modal */
         #confirm-delete-bell-modal { z-index: 55; }
 
-        /* NEW: Styles for mute buttons */
-        #mute-all-btn.muted {
-            background-color: #dc2626; /* red-600 */
-            color: white;
-        }
-        #mute-all-btn.muted:hover {
-            background-color: #b91c1c; /* red-700 */
-        }
+        /* DELETED: Old mute button styles */
 
         /* NEW: Hide file input, style the button */
         #import-file-input {
@@ -237,7 +230,7 @@
     <!-- Main Application -->
     <div class="container mx-auto max-w-2xl p-4 md:p-8">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 2.03</h1>
+            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 2.04</h1>
             <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
             
             <!-- MODIFIED: User info and signout button grouped -->
@@ -274,21 +267,20 @@
                 Status: <span id="status-message" class="font-medium text-gray-700">Initializing...</span>
             </div>
 
-            <!-- NEW: Mute Controls -->
-            <div class="flex justify-center gap-4 mt-4">
-                <button id="mute-all-btn" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                    Mute All
-                </button>
-                <button id="mute-next-btn" class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                    Mute Next
-                </button>
-            </div>
+            <!-- DELETED: Old Mute Controls -->
 
         </div>
 
         <!-- Combined Bell Schedule List -->
         <div>
-            <h2 id="schedule-title" class="text-2xl font-semibold mb-4">Current Schedule</h2>
+            <!-- NEW: Mute Controls added -->
+            <div class="flex justify-between items-center mb-4">
+                 <h2 id="schedule-title" class="text-2xl font-semibold">Current Schedule</h2>
+                 <div class="flex-shrink-0 flex gap-2">
+                     <button id="mute-all-list-btn" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Mute All</button>
+                     <button id="unmute-all-list-btn" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Unmute All</button>
+                 </div>
+            </div>
             <div id="combined-bell-list" class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
                 <!-- Bells will be injected here by JavaScript -->
                 <div class="p-8 text-center text-gray-500">
@@ -472,9 +464,7 @@
         const scheduleTitle = document.getElementById('schedule-title');
         const adminToggleBtn = document.getElementById('admin-toggle');
 
-        // NEW: Mute Buttons
-        const muteAllBtn = document.getElementById('mute-all-btn');
-        const muteNextBtn = document.getElementById('mute-next-btn');
+        // DELETED: Old Mute Buttons
         
         // Custom Bell Form
         const addCustomBellForm = document.getElementById('add-custom-bell-form');
@@ -574,11 +564,40 @@
         let bellToDelete = null; 
 
         // NEW: Mute State
-        let isMutedAll = false;
-        let mutedNextBell = null; // Stores "TIME-NAME" of the next bell to mute
+        let mutedBellIds = new Set(); // Stores bell IDs like "custom-12:00:00-My Bell"
 
         let appId; 
         let isAudioReady = false; 
+
+        // --- NEW: Mute Helper Functions ---
+        function getBellId(bell) {
+            if (!bell || !bell.type || !bell.time || !bell.name) return null;
+            // Sanitize name just in case
+            const safeName = bell.name.replace(/"/g, '&quot;');
+            return `${bell.type}-${bell.time}-${safeName}`;
+        }
+
+        function loadMutedBells() {
+            try {
+                const stored = localStorage.getItem('mutedBellIds');
+                if (stored) {
+                    mutedBellIds = new Set(JSON.parse(stored));
+                    console.log(`Loaded ${mutedBellIds.size} muted bell IDs.`);
+                }
+            } catch (e) {
+                console.error("Failed to load muted bells", e);
+                mutedBellIds = new Set();
+            }
+        }
+
+        function saveMutedBells() {
+            try {
+                localStorage.setItem('mutedBellIds', JSON.stringify([...mutedBellIds]));
+            } catch (e) {
+                console.error("Failed to save muted bells", e);
+            }
+        }
+
 
         // --- Audio Setup (Tone.js) ---
         // MODIFIED: Combined audio start and synth setup
@@ -752,8 +771,8 @@
                 countdownElement.textContent = countdownString;
                 
                 // NEW: Check if this next bell is muted
-                const nextBellId = `${nextBell.time}-${nextBell.name}`;
-                if (mutedNextBell === nextBellId) {
+                const nextBellId = getBellId(nextBell);
+                if (mutedBellIds.has(nextBellId)) {
                     nextBellElement.textContent = `until ${nextBell.name} (MUTED)`;
                 } else {
                     nextBellElement.textContent = `until ${nextBell.name}`;
@@ -773,18 +792,12 @@
             const bellToRing = allBells.find(bell => bell.time === currentTimeHHMMSS);
             
             if (bellToRing && lastBellRingTime !== currentTimeHHMMSS) {
-                const bellId = `${bellToRing.time}-${bellToRing.name}`;
+                const bellId = getBellId(bellToRing);
                 
                 // NEW: Check mute status
-                if (isMutedAll) {
-                    console.log(`Skipping bell (Muted All): ${bellToRing.name}`);
-                    statusElement.textContent = `Skipped (All Muted): ${bellToRing.name}`;
-                } else if (mutedNextBell === bellId) {
-                    console.log(`Skipping bell (Muted Next): ${bellToRing.name}`);
+                if (mutedBellIds.has(bellId)) {
+                    console.log(`Skipping bell (Muted): ${bellToRing.name}`);
                     statusElement.textContent = `Skipped (Muted): ${bellToRing.name}`;
-                    mutedNextBell = null; // Clear the one-time mute
-                    muteNextBtn.textContent = "Mute Next"; // Reset button text
-                    muteNextBtn.disabled = false;
                 } else {
                     // Ring the bell
                     ringBell(bellToRing);
@@ -804,7 +817,8 @@
             playBell(bell.sound);
             statusElement.textContent = `Ringing: ${bell.name}`;
             
-            const bellElement = document.querySelector(`[data-time="${bell.time}"][data-name="${bell.name}"]`);
+            const safeName = bell.name.replace(/"/g, '&quot;'); // Ensure safe selector
+            const bellElement = document.querySelector(`[data-time="${bell.time}"][data-name="${safeName}"]`);
             if (bellElement) {
                 bellElement.classList.add('bg-blue-100');
                 setTimeout(() => {
@@ -829,12 +843,24 @@
                 const isAdmin = document.body.classList.contains('admin-mode');
                 // Sanitize name for use in attributes
                 const safeName = bell.name.replace(/"/g, '&quot;');
+                
+                // NEW MUTE LOGIC
+                const bellId = getBellId(bell);
+                const isMuted = mutedBellIds.has(bellId);
 
 
                 return `
-                    <div class="flex items-center justify-between p-4 ${!isFirst ? 'border-t border-gray-200' : ''} hover:bg-gray-50 transition-colors"
+                    <div class="bell-item flex items-center justify-between p-4 ${!isFirst ? 'border-t border-gray-200' : ''} hover:bg-gray-50 transition-colors"
                          data-time="${bell.time}" data-name="${safeName}" data-sound="${bell.sound}" data-type="${bell.type}">
-                        <div class="flex items-center space-x-4 min-w-0"> <!-- NEW: min-w-0 for truncation -->
+                        
+                        <!-- NEW MUTE TOGGLE -->
+                        <div class="flex-shrink-0 mr-4">
+                            <input type="checkbox" class="bell-mute-toggle h-5 w-5 text-blue-600 rounded focus:ring-blue-500" 
+                                   data-bell-id="${bellId}" ${isMuted ? 'checked' : ''} 
+                                   aria-label="Mute this bell">
+                        </div>
+                        
+                        <div class="flex items-center space-x-4 min-w-0 flex-grow"> <!-- Added flex-grow -->
                             <span class="text-xl font-medium text-blue-600 tabular-nums">${bell.time}</span>
                             <div class="min-w-0"> <!-- NEW: min-w-0 for truncation -->
                                 <span class="font-medium text-gray-800 truncate block">${bell.name}</span> <!-- NEW: truncate block -->
@@ -1230,6 +1256,22 @@
         // --- Event Delegation for Bell List ---
         function handleBellListClick(e) {
             const target = e.target;
+
+            // NEW: Handle Mute Toggle
+            if (target.classList.contains('bell-mute-toggle')) {
+                const bellId = target.dataset.bellId;
+                if (!bellId) return;
+                
+                if (target.checked) {
+                    mutedBellIds.add(bellId);
+                } else {
+                    mutedBellIds.delete(bellId);
+                }
+                saveMutedBells();
+                updateClock(); // To update (MUTED) text
+                return; // Stop processing
+            }
+
             const bellElement = target.closest('[data-time]');
             if (!bellElement) return;
 
@@ -1257,6 +1299,13 @@
             
             const { time, name, type } = bellToDelete;
             
+            // NEW: Unmute the bell when deleting it
+            const bellId = getBellId(bellToDelete);
+            if (mutedBellIds.has(bellId)) {
+                mutedBellIds.delete(bellId);
+                saveMutedBells();
+            }
+
             if (type === 'custom') {
                 customBells = customBells.filter(b => !(b.time === time && b.name === name));
                 saveCustomBells();
@@ -1310,6 +1359,16 @@
             };
             
             const { originalTime, originalName, type } = currentEditingBell;
+
+            // NEW: Update Mute ID if it exists
+            // We'll delete the old one and let the user re-mute the new one if they want.
+            // A simpler way is to just delete the old one.
+            const oldBellId = getBellId({type, time: originalTime, name: originalName});
+            if (mutedBellIds.has(oldBellId)) {
+                mutedBellIds.delete(oldBellId);
+                // We won't add the new one automatically, user can re-check it.
+                saveMutedBells();
+            }
 
             if (type === 'custom') {
                 const index = customBells.findIndex(b => b.time === originalTime && b.name === originalName);
@@ -1401,6 +1460,12 @@
                 const schedule = allSchedules.find(s => s.id === scheduleId);
                 if (!schedule) continue;
 
+                // NEW: Clear mute for the original bell in this schedule
+                const oldBellId = getBellId({type: 'shared', time: originalBell.time, name: originalBell.name});
+                if (mutedBellIds.has(oldBellId)) {
+                    mutedBellIds.delete(oldBellId);
+                }
+
                 const updatedBells = schedule.bells.map(bell => {
                     if (bell.time === originalBell.time && bell.name === originalBell.name && bell.sound === originalBell.sound) {
                         return newBellData; 
@@ -1413,6 +1478,7 @@
             }
 
             await batch.commit();
+            saveMutedBells(); // Save the cleared mutes
             await loadAllSchedules(); // Reload to get all changes reflected
         }
         
@@ -1571,37 +1637,8 @@
             }
         }
 
-        // --- NEW: Mute Logic ---
-        function toggleMuteAll() {
-            isMutedAll = !isMutedAll;
-            if (isMutedAll) {
-                muteAllBtn.textContent = "Unmute All";
-                muteAllBtn.classList.add('muted');
-                statusElement.textContent = "All bells are muted.";
-            } else {
-                muteAllBtn.textContent = "Mute All";
-                muteAllBtn.classList.remove('muted');
-                statusElement.textContent = "Monitoring...";
-            }
-        }
-
-        function handleMuteNext() {
-            const now = new Date();
-            const currentTimeHHMMSS = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-            const nextBell = findNextBell(currentTimeHHMMSS);
-
-            if (nextBell) {
-                const bellId = `${nextBell.time}-${nextBell.name}`;
-                mutedNextBell = bellId;
-                statusElement.textContent = `Muted next bell: ${nextBell.name}`;
-                nextBellElement.textContent = `until ${nextBell.name} (MUTED)`; // Update UI immediately
-                muteNextBtn.textContent = "Next Muted";
-                muteNextBtn.disabled = true;
-            } else {
-                statusElement.textContent = "No bells to mute.";
-            }
-        }
-
+        // DELETED: Old Mute Logic
+        
         // --- NEW: Import/Export Logic ---
         function handleExportSchedules() {
             if (allSchedules.length === 0) {
@@ -1718,6 +1755,9 @@
         function init() {
             // NEW: Init Firebase first thing
             initFirebase(); // This just sets up the listeners
+            
+            // NEW: Load mute state
+            loadMutedBells(); 
 
             // NEW: Auth button listeners
             googleStartBtn.addEventListener('click', signInWithGoogle);
@@ -1794,9 +1834,27 @@
             // Event delegation for bell list
             combinedBellListElement.addEventListener('click', handleBellListClick);
             
-            // NEW: Mute Button Listeners
-            muteAllBtn.addEventListener('click', toggleMuteAll);
-            muteNextBtn.addEventListener('click', handleMuteNext);
+            // NEW: Mute All / Unmute All Listeners
+            const muteAllListBtn = document.getElementById('mute-all-list-btn');
+            const unmuteAllListBtn = document.getElementById('unmute-all-list-btn');
+
+            muteAllListBtn.addEventListener('click', () => {
+                const allBells = [...localSchedule, ...customBells];
+                allBells.forEach(bell => {
+                    const bellId = getBellId(bell);
+                    if(bellId) mutedBellIds.add(bellId);
+                });
+                saveMutedBells();
+                renderCombinedList(); // Re-render to show all checked
+                updateClock();
+            });
+
+            unmuteAllListBtn.addEventListener('click', () => {
+                mutedBellIds.clear();
+                saveMutedBells();
+                renderCombinedList(); // Re-render to show all unchecked
+                updateClock();
+            });
 
             // NEW: Import/Export Listeners
             exportSchedulesBtn.addEventListener('click', handleExportSchedules);
@@ -1813,3 +1871,4 @@
     </script>
 </body>
 </html>
+
