@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ellis Web Bell 2.04</title>
+    <title>Ellis Web Bell 2.05</title>
     <!-- Using Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Using Tone.js for web audio -->
@@ -230,7 +230,7 @@
     <!-- Main Application -->
     <div class="container mx-auto max-w-2xl p-4 md:p-8">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 2.04</h1>
+            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 2.05</h1>
             <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
             
             <!-- MODIFIED: User info and signout button grouped -->
@@ -853,39 +853,47 @@
                     <div class="bell-item flex items-center justify-between p-4 ${!isFirst ? 'border-t border-gray-200' : ''} hover:bg-gray-50 transition-colors"
                          data-time="${bell.time}" data-name="${safeName}" data-sound="${bell.sound}" data-type="${bell.type}">
                         
-                        <!-- NEW MUTE TOGGLE -->
-                        <div class="flex-shrink-0 mr-4">
-                            <input type="checkbox" class="bell-mute-toggle h-5 w-5 text-blue-600 rounded focus:ring-blue-500" 
-                                   data-bell-id="${bellId}" ${isMuted ? 'checked' : ''} 
-                                   aria-label="Mute this bell">
-                        </div>
-                        
+                        <!-- Bell Info (Time, Name, Sound) (left) -->
                         <div class="flex items-center space-x-4 min-w-0 flex-grow"> <!-- Added flex-grow -->
                             <span class="text-xl font-medium text-blue-600 tabular-nums">${bell.time}</span>
                             <div class="min-w-0"> <!-- NEW: min-w-0 for truncation -->
-                                <span class="font-medium text-gray-800 truncate block">${bell.name}</span> <!-- NEW: truncate block -->
+                                <span class="font-medium text-gray-800 truncate block">${safeName}</span> <!-- NEW: truncate block, using safeName -->
                                 <span class="text-sm text-gray-500">(${bell.sound})</span>
                                 ${isCustom ? '<span class="ml-2 text-xs font-semibold bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full">CUSTOM</span>' : ''}
                             </div>
                         </div>
-                        <div class="flex-shrink-0 space-x-2">
-                            <!-- Shared Bell Edit/Delete (hidden by default, shown in admin mode) -->
-                            <button class="edit-btn px-3 py-1 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-                                    aria-label="Edit shared bell ${safeName}"
-                                    title="Edit shared bell">Edit</button>
-                            <button class="delete-btn px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
-                                    aria-label="Delete shared bell ${safeName}"
-                                    title="Delete shared bell">Delete</button>
-                                    
-                            <!-- Custom Bell Edit/Delete (always shown) -->
-                            <button class="edit-custom-btn px-3 py-1 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-                                    style="${!isCustom ? 'display: none;' : ''}"
-                                    aria-label="Edit custom bell ${safeName}"
-                                    title="Edit custom bell">Edit</button>
-                            <button class="delete-custom-btn px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
-                                    style="${!isCustom ? 'display: none;' : ''}"
-                                    aria-label="Delete custom bell ${safeName}"
-                                    title="Delete custom bell">Delete</button>
+                        
+                        <!-- Right side controls (Mute + Edit/Delete) -->
+                        <div class="flex-shrink-0 flex items-center space-x-4">
+                        
+                            <!-- NEW Mute Control (Label + Checkbox) -->
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <span class="text-sm font-medium text-gray-700">Mute</span>
+                                <input type="checkbox" class="bell-mute-toggle h-5 w-5 text-blue-600 rounded focus:ring-blue-500" 
+                                       data-bell-id="${bellId}" ${isMuted ? 'checked' : ''} 
+                                       aria-label="Mute this bell">
+                            </label>
+
+                            <!-- Edit/Delete Buttons -->
+                            <div class="flex-shrink-0 space-x-2">
+                                <!-- Shared Bell Edit/Delete (hidden by default, shown in admin mode) -->
+                                <button class="edit-btn px-3 py-1 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                                        aria-label="Edit shared bell ${safeName}"
+                                        title="Edit shared bell">Edit</button>
+                                <button class="delete-btn px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                        aria-label="Delete shared bell ${safeName}"
+                                        title="Delete shared bell">Delete</button>
+                                        
+                                <!-- Custom Bell Edit/Delete (always shown) -->
+                                <button class="edit-custom-btn px-3 py-1 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                                        style="${!isCustom ? 'display: none;' : ''}"
+                                        aria-label="Edit custom bell ${safeName}"
+                                        title="Edit custom bell">Edit</button>
+                                <button class="delete-custom-btn px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+                                        style="${!isCustom ? 'display: none;' : ''}"
+                                        aria-label="Delete custom bell ${safeName}"
+                                        title="Delete custom bell">Delete</button>
+                            </div>
                         </div>
                     </div>
                 `;
