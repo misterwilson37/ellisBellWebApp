@@ -557,8 +557,8 @@
         let isMutedAll = false;
         let mutedNextBell = null; // Stores "TIME-NAME" of the next bell to mute
 
-        // Use the dynamic appId from the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Use one static ID so schedules are shared across all environments
+        const appId = 'ellis-bell-app';
 
         // Your web app's Firebase configuration
         // For Firebase JS SDK v7.20.0 and later, measurementId is optional
