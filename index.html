@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ellis Web Bell 2.24</title>
+    <title>Ellis Web Bell 2.36</title>
+    <!-- NEW: SVG Favicon (FIXED: Removed extra quote in viewBox) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24%22 fill=%22%232563EB%22><path d=%22M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z%22/></svg>">
     <!-- Using Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Using Tone.js for web audio -->
@@ -86,6 +87,17 @@
         body.admin-mode .admin-only {
             display: inline-flex; /* MODIFIED: Use inline-flex to work with flex properties */
         }
+
+        /* DELETED: These rules don't work with the CDN build */
+        /*
+        .quick-bell-btn {
+            @apply bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition-all duration-150 shadow-md hover:shadow-lg;
+        }
+
+        .quick-bell-btn:active {
+            @apply transform scale-95;
+        }
+        */
 
     </style>
 </head>
@@ -328,7 +340,7 @@
     <!-- Main Application -->
     <div class="container mx-auto max-w-2xl p-4 md:p-8">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 2.24</h1>
+            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 2.36</h1>
             <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
             
             <!-- MODIFIED: User info and signout button grouped -->
@@ -367,6 +379,39 @@
             <!-- DELETED: Old Mute Controls -->
 
         </div>
+
+        <!-- **** NEW: Quick Bell Section **** -->
+        <div id="quickBellControls" class="p-4 bg-white rounded-xl shadow-md mb-8 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <div class="flex items-center space-x-3 flex-shrink-0"> <!-- ADDED flex-shrink-0 -->
+                <span class="font-semibold text-gray-700">Quick Bell:</span>
+                <div class="flex flex-wrap gap-2">
+                    <!-- ADDED: The 'quick-bell-btn' class as a JS hook -->
+                    <button data-minutes="1" class="quick-bell-btn bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition-all duration-150 shadow-md hover:shadow-lg transform active:scale-95">1</button>
+                    <button data-minutes="2" class="quick-bell-btn bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition-all duration-150 shadow-md hover:shadow-lg transform active:scale-95">2</button>
+                    <button data-minutes="3" class="quick-bell-btn bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition-all duration-150 shadow-md hover:shadow-lg transform active:scale-95">3</button>
+                    <button data-minutes="5" class="quick-bell-btn bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition-all duration-150 shadow-md hover:shadow-lg transform active:scale-95">5</button>
+                    <button data-minutes="10" class="quick-bell-btn bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition-all duration-150 shadow-md hover:shadow-lg transform active:scale-95">10</button>
+                    <button data-minutes="15" class="quick-bell-btn bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm transition-all duration-150 shadow-md hover:shadow-lg transform active:scale-95">15</button>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 flex-shrink min-w-0 w-full sm:w-auto"> <!-- ADDED flex-shrink min-w-0 w-full sm:w-auto -->
+                <label for="quickBellSoundSelect" class="text-sm font-medium text-gray-700">Sound:</label>
+                <!-- This select will be populated by JS to match the others -->
+                <select id="quickBellSoundSelect" class="w-full truncate px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"> <!-- REPLACED sm:w-auto WITH w-full and ADDED truncate -->
+                    <optgroup label="Default Sounds">
+                        <option value="Bell">Bell</option>
+                        <option value="Chime">Chime</option>
+                        <option value="Beep">Beep</option>
+                        <option value="Alarm">Alarm</option>
+                        <option value="ellisBell.mp3" selected>Ellis Bell</option>
+                    </optgroup>
+                    <optgroup label="My Sounds" id="quick-my-sounds-optgroup"></optgroup>
+                    <optgroup label="Shared Sounds" id="quick-shared-sounds-optgroup"></optgroup>
+                </select>
+            </div>
+        </div>
+        <!-- **** END NEW: Quick Bell Section **** -->
+
 
         <!-- Combined Bell Schedule List -->
         <div>
@@ -596,7 +641,7 @@
     </div>
 
         <!-- Firebase and App Logic -->
-    <script type="module">
+        <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         
@@ -623,6 +668,10 @@
         const scheduleSelector = document.getElementById('schedule-selector');
         const scheduleTitle = document.getElementById('schedule-title');
         const adminToggleBtn = document.getElementById('admin-toggle');
+
+        // NEW: Quick Bell Elements
+        const quickBellControls = document.getElementById('quickBellControls');
+        const quickBellSoundSelect = document.getElementById('quickBellSoundSelect');
 
         // Custom Bell Form
         const addCustomBellForm = document.getElementById('add-custom-bell-form');
@@ -739,6 +788,8 @@
         let activeScheduleListenerUnsubscribe = null; 
         let synths = {}; 
         let lastBellRingTime = null; 
+        let lastRingTimestamp = 0; // NEW: For ring cooldown
+        const RING_COOLDOWN = 5000; // 5 seconds (5000ms)
         let clockIntervalId = null; 
         
         let currentEditingBell = null; 
@@ -746,6 +797,10 @@
         let linkedEditData = null; 
         let bellToDelete = null; 
         let audioToDelete = null; // NEW: State for audio deletion
+
+        // NEW: Quick Bell State
+        let quickBellEndTime = null;
+        let quickBellSound = 'ellisBell.mp3'; // Default sound
 
         let mutedBellIds = new Set(); 
         let bellSoundOverrides = {}; // NEW: Store local sound overrides
@@ -813,6 +868,35 @@
                 localStorage.setItem('bellSoundOverrides', JSON.stringify(bellSoundOverrides));
             } catch (e) {
                 console.error("Failed to save sound overrides", e);
+            }
+        }
+
+        // NEW: Helper to format 24h time to 12h AM/PM
+        function formatTime12Hour(timeString) {
+            if (!timeString) return "--:--";
+            
+            try {
+                const parts = timeString.split(':');
+                if (parts.length < 2) return timeString; // Not a valid time
+
+                let [hours, minutes, seconds] = parts;
+                hours = parseInt(hours, 10);
+
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                
+                hours = hours % 12;
+                hours = hours ? hours : 12; // '0' (midnight) should be '12'
+
+                // 'hours' is now a number (1-12), so no leading zero.
+                
+                if (seconds) {
+                    return `${hours}:${minutes}:${seconds} ${ampm}`;
+                } else {
+                    return `${hours}:${minutes} ${ampm}`;
+                }
+            } catch (e) {
+                console.error("Error formatting time:", e);
+                return timeString; // Fallback to original
             }
         }
 
@@ -1009,53 +1093,81 @@
 
         function updateClock() {
             const now = new Date();
+            const nowTimestamp = now.getTime(); // Get current time in ms
             const hours = String(now.getHours()).padStart(2, '0');
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const seconds = String(now.getSeconds()).padStart(2, '0');
             const currentTimeHHMMSS = `${hours}:${minutes}:${seconds}`;
 
             clockElement.textContent = `The time is ${currentTimeHHMMSS}. There are`;
+            
             const nextBell = findNextBell(currentTimeHHMMSS);
-
+            
+            // --- NEW: Quick Bell + Schedule Bell Countdown Logic ---
+            let millisToScheduleBell = Infinity;
             if (nextBell) {
                 const [h, m, s] = nextBell.time.split(':').map(Number);
                 const nextBellDate = new Date();
                 nextBellDate.setHours(h, m, s, 0);
-                let totalMilliseconds = nextBellDate.getTime() - now.getTime();
-                if (totalMilliseconds < 0) {
+                millisToScheduleBell = nextBellDate.getTime() - nowTimestamp;
+                if (millisToScheduleBell < 0) { // If bell time has passed for today
                     nextBellDate.setDate(nextBellDate.getDate() + 1);
-                    totalMilliseconds = nextBellDate.getTime() - now.getTime();
+                    millisToScheduleBell = nextBellDate.getTime() - nowTimestamp;
                 }
-                let totalSeconds = Math.max(0, Math.floor(totalMilliseconds / 1000));
+            }
+
+            const millisToQuickBell = quickBellEndTime ? quickBellEndTime.getTime() - nowTimestamp : Infinity;
+            
+            let activeTimerLabel = null;
+            let activeTimerMillis = Infinity;
+            let isMuting = false;
+
+            if (millisToScheduleBell < millisToQuickBell && nextBell) {
+                activeTimerLabel = nextBell.name;
+                activeTimerMillis = millisToScheduleBell;
+                const nextBellId = getBellId(nextBell);
+                isMuting = mutedBellIds.has(nextBellId);
+            } else if (millisToQuickBell < millisToScheduleBell) {
+                activeTimerLabel = "Quick Bell";
+                activeTimerMillis = millisToQuickBell;
+                isMuting = false;
+            }
+
+            if (activeTimerLabel) {
+                let totalSeconds = Math.max(0, Math.floor(activeTimerMillis / 1000));
                 let cdHours = Math.floor(totalSeconds / 3600);
                 totalSeconds %= 3600;
                 let cdMinutes = Math.floor(totalSeconds / 60);
                 let cdSeconds = totalSeconds % 60;
                 let countdownString;
+                
                 if (cdHours > 0) {
                     countdownString = `${cdHours}:${String(cdMinutes).padStart(2, '0')}:${String(cdSeconds).padStart(2, '0')}`;
-                } else if (cdMinutes > 0) {
+                } else if (cdMinutes > 0 || cdHours > 0) { // Show minutes if 1m or more
                     countdownString = `${cdMinutes}:${String(cdSeconds).padStart(2, '0')}`;
                 } else {
                     countdownString = `${cdSeconds}`;
                 }
                 countdownElement.textContent = countdownString;
                 
-                const nextBellId = getBellId(nextBell);
-                if (mutedBellIds.has(nextBellId)) {
-                    nextBellElement.textContent = `until ${nextBell.name} (MUTED)`;
+                if (isMuting) {
+                    nextBellElement.textContent = `until ${activeTimerLabel} (MUTED)`;
                 } else {
-                    nextBellElement.textContent = `until ${nextBell.name}`;
+                    nextBellElement.textContent = `until ${activeTimerLabel}`;
                 }
             } else {
                 countdownElement.textContent = "--:--";
                 nextBellElement.textContent = "until the next bell.";
             }
-            
+            // --- END NEW Countdown Logic ---
+
+
+            // --- Ring Logic (Scheduled Bells) ---
             const allBells = [...localSchedule, ...customBells];
             const bellToRing = allBells.find(bell => bell.time === currentTimeHHMMSS);
             
-            if (bellToRing && lastBellRingTime !== currentTimeHHMMSS) {
+            // MODIFIED: Added cooldown check
+            if (bellToRing && lastBellRingTime !== currentTimeHHMMSS && (nowTimestamp - lastRingTimestamp > RING_COOLDOWN)) {
                 const bellId = getBellId(bellToRing);
                 if (mutedBellIds.has(bellId)) {
                     console.log(`Skipping bell (Muted): ${bellToRing.name}`);
@@ -1064,12 +1176,31 @@
                     ringBell(bellToRing); // This is fire-and-forget, which is fine
                 }
                 lastBellRingTime = currentTimeHHMMSS;
+                lastRingTimestamp = nowTimestamp; // Set cooldown timestamp
             }
             
-            if (lastBellRingTime && lastBellRingTime !== currentTimeHHMMSS) {
+            // --- NEW: Ring Logic (Quick Bell) ---
+            if (quickBellEndTime && nowTimestamp >= quickBellEndTime.getTime() && (nowTimestamp - lastRingTimestamp > RING_COOLDOWN)) {
+                console.log("Ringing Quick Bell");
+                ringBell({ name: "Quick Bell", sound: quickBellSound });
+                lastRingTimestamp = nowTimestamp; // Set cooldown timestamp
+                quickBellEndTime = null; // Clear the quick bell
+                lastBellRingTime = null; // Clear schedule bell tracker
+            }
+
+            // MODIFIED: Reset status text logic
+            if (lastBellRingTime && lastBellRingTime !== currentTimeHHMMSS && (nowTimestamp - lastRingTimestamp > RING_COOLDOWN)) {
                 lastBellRingTime = null;
                 if (isAudioReady) statusElement.textContent = "Monitoring...";
             }
+        }
+
+        // --- NEW: Quick Bell Function ---
+        function startQuickBell(minutes) {
+            const now = new Date();
+            quickBellEndTime = new Date(now.getTime() + minutes * 60000);
+            console.log(`Quick bell set for ${minutes} minutes from now.`);
+            updateClock(); // Update display immediately
         }
         
         async function ringBell(bell) {
@@ -1136,7 +1267,7 @@
                         
                         <!-- Bell Info (Time, Name, Sound) (left) -->
                         <div class="flex items-center space-x-4 min-w-0 flex-grow">
-                            <span class="text-xl font-medium text-blue-600 tabular-nums">${bell.time}</span>
+                            <span class="text-xl font-medium text-blue-600 tabular-nums">${formatTime12Hour(bell.time)}</span>
                             <div class="min-w-0">
                                 <span class="font-medium text-gray-800 truncate block" title="${safeName}">${safeName}</span>
                                 <!-- MODIFIED: Updated sound display logic -->
@@ -1254,23 +1385,22 @@
             if (auth) return; 
 
             try {
+                // MODIFIED: Restored hardcoded config.
+                // This is required for GitHub Pages.
+                // **** YOU MUST RESTRICT THIS API KEY IN THE GOOGLE CLOUD CONSOLE ****
                 const firebaseConfig = {
                     apiKey: "AIzaSyDfo45UBu-pR8nqMQhVlS_QgyYZ2kzBdvM",
                     authDomain: "ellisbell-c185c.firebaseapp.com",
                     projectId: "ellisbell-c185c",
-                    storageBucket: "ellisbell-c185c.firebasestorage.app", // MODIFIED: Corrected bucket name
-                    messagingSenderId: "441560045695",
-                    appId: "1:441560045695:web:94e51a006663404b8f474a",
-                    measurementId: "G-D6TX4YRBSD"
+                    storageBucket: "ellisbell-c185c.firebasestorage.app",
+                    appId: "1:441560045695:web:94e51a006663404b8f474a"
+                    // Other fields like messagingSenderId and measurementId are not needed
+                    // for Auth, Firestore, and Storage.
                 };
                 
-                appId = firebaseConfig.appId; 
-                if (!appId) {
-                    console.error("Firebase appId is missing from config!");
-                    statusElement.textContent = "Error: Firebase config missing App ID.";
-                    appId = 'default-app-id';
-                }
-
+                // MODIFIED: Restored hardcoded appId
+                appId = "1:441560045695:web:94e51a006663404b8f474a";
+                
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -1430,8 +1560,9 @@
         
         async function loadAllSchedules() {
             if (!schedulesCollectionRef) {
-                 const configAppId = "1:441560045695:web:94e51a006663404b8f474a";
-                 schedulesCollectionRef = collection(db, 'artifacts', configAppId, 'public', 'data', 'schedules');
+                 // MODIFIED: Removed hardcoded configAppId, now uses global 'appId'
+                 // 'appId' is set correctly in initFirebase() before this is called
+                 schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
             }
 
             try {
@@ -1771,7 +1902,7 @@
         function openChangeSoundModal(bell) {
             currentChangingSoundBell = bell;
             changeSoundBellName.textContent = bell.name;
-            changeSoundBellTime.textContent = bell.time;
+            changeSoundBellTime.textContent = formatTime12Hour(bell.time);
             // Set dropdown to the *current* sound (which might be an override)
             changeSoundSelect.value = bell.sound;
             changeSoundModal.classList.remove('hidden');
@@ -2301,7 +2432,8 @@
                 { el: sharedSoundInput, myGroup: 'shared-my-sounds-optgroup', sharedGroup: 'shared-shared-sounds-optgroup' },
                 { el: multiBellSoundInput, myGroup: 'multi-my-sounds-optgroup', sharedGroup: 'multi-shared-sounds-optgroup' },
                 { el: editBellSoundInput, myGroup: 'edit-my-sounds-optgroup', sharedGroup: 'edit-shared-sounds-optgroup' },
-                { el: changeSoundSelect, myGroup: 'change-my-sounds-optgroup', sharedGroup: 'change-shared-sounds-optgroup' } // NEW: Add change-sound modal
+                { el: changeSoundSelect, myGroup: 'change-my-sounds-optgroup', sharedGroup: 'change-shared-sounds-optgroup' }, // NEW: Add change-sound modal
+                { el: quickBellSoundSelect, myGroup: 'quick-my-sounds-optgroup', sharedGroup: 'quick-shared-sounds-optgroup' } // NEW: Add quick bell select
             ];
 
             // Create options HTML
@@ -2547,6 +2679,17 @@
                 audioToDelete = null;
             });
 
+            // NEW: Quick Bell Listeners
+            quickBellControls.addEventListener('click', (e) => {
+                if (e.target.matches('.quick-bell-btn')) {
+                    const minutes = parseInt(e.target.dataset.minutes, 10);
+                    startQuickBell(minutes);
+                }
+            });
+            quickBellSoundSelect.addEventListener('change', () => {
+                quickBellSound = quickBellSoundSelect.value;
+            });
+
             // NEW: Modals (Change Sound)
             changeSoundForm.addEventListener('submit', handleChangeSoundSubmit);
             changeSoundCancelBtn.addEventListener('click', closeChangeSoundModal);
@@ -2650,4 +2793,4 @@ HOW TO ADD A NEW ADMIN:
 The new admin will have admin privileges (including the "Make Public" button) the next time they refresh the app.
 -->
 
-<!-- Version 2.24 -->
+<!-- Version 2.36 -->
