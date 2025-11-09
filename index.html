@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- MODIFIED: Version Bump -->
-    <title>Ellis Web Bell 3.10</title>
+    <title>Ellis Web Bell 3.23</title>
     <!-- NEW: SVG Favicon (FIXED: Removed extra quote in viewBox) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24%22 fill=%22%232563EB%22><path d=%22M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z%22/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%232563EB%22><path d=%22M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z%22/></svg>">
     <!-- Using Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Using Tone.js for web audio -->
@@ -259,21 +259,27 @@
                 <p id="change-sound-bell-time" class="text-lg font-semibold text-gray-900"></p>
             </div>
 
-            <!-- Sound Select -->
-            <div>
-                <label for="change-sound-select" class="block text-sm font-medium text-gray-700">Sound</label>
-                <select id="change-sound-select" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <optgroup label="Default Sounds">
-                        <option value="Bell">Bell</option>
-                        <option value="Chime">Chime</option>
-                        <option value="Beep">Beep</option>
-                        <option value="Alarm">Alarm</option>
-                        <option value="ellisBell.mp3" selected>Ellis Bell</option>
-                    </optgroup>
-                    <optgroup label="My Sounds" id="change-my-sounds-optgroup"></optgroup>
-                    <optgroup label="Shared Sounds" id="change-shared-sounds-optgroup"></optgroup>
-                </select>
+            <!-- MODIFIED: v3.19 - Sound Select + Play Button -->
+            <div class="flex items-end gap-2">
+                <div class="flex-grow">
+                    <label for="change-sound-select" class="block text-sm font-medium text-gray-700">Sound</label>
+                    <select id="change-sound-select" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <optgroup label="Default Sounds">
+                            <option value="Bell">Bell</option>
+                            <option value="Chime">Chime</option>
+                            <option value="Beep">Beep</option>
+                            <option value="Alarm">Alarm</option>
+                            <option value="ellisBell.mp3" selected>Ellis Bell</option>
+                        </optgroup>
+                        <optgroup label="My Sounds" id="change-my-sounds-optgroup"></optgroup>
+                        <optgroup label="Shared Sounds" id="change-shared-sounds-optgroup"></optgroup>
+                    </select>
+                </div>
+                <button type="button" id="preview-change-sound" class="w-10 h-10 flex-shrink-0 flex items-center justify-center text-lg bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors" aria-label="Preview">
+                    &#9654;
+                </button>
             </div>
+            <!-- END MODIFICATION -->
 
             <!-- Warning Message -->
             <div class="mt-4 p-4 bg-yellow-100 border-l-4 border-yellow-400 rounded">
@@ -486,7 +492,7 @@
     <div class="container mx-auto max-w-2xl p-4 md:p-8">
         <header class="text-center mb-8">
             <!-- MODIFIED: Version Bump -->
-            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 3.10</h1>
+            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 3.23</h1>
             <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
             
             <!-- MODIFIED: User info and signout button grouped -->
@@ -514,6 +520,10 @@
                 <!-- Line 3: "until XXBELLXX" -->
                 <div id="next-bell-sentence" class="text-2xl font-medium text-gray-600">
                     until the next bell.
+                </div>
+                <!-- MODIFIED: v3.21 -> v3.22 - This line's content logic is updated -->
+                <div id="next-bell-info" class="text-lg text-gray-500 mt-2">
+                    <!-- JS will populate this -->
                 </div>
             </div>
 
@@ -587,11 +597,12 @@
                     Toggle Admin
                 </button>
             </div>
-            <select id="schedule-selector" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg">
-                <!-- MODIFIED: v3.03 - Will be populated with optgroups -->
+            
+            <!-- NEW (FIXED): Re-inserted the missing select element -->
+            <select id="schedule-selector" class="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
                 <option value="">Loading schedules...</option>
             </select>
-            
+ 
             <!-- NEW: v3.03 - Button to create personal schedule -->
             <button id="create-personal-schedule-btn" class="auth-required w-full mt-4 px-4 py-2 bg-green-600 text-white font-medium rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                 Copy as Personal Schedule
@@ -857,6 +868,9 @@
         const scheduleTitle = document.getElementById('schedule-title');
         const adminToggleBtn = document.getElementById('admin-toggle');
 
+        // MODIFIED: v3.21 -> v3.22 - Renamed from v3.21
+        const nextBellInfoElement = document.getElementById('next-bell-info');
+
         // NEW: Quick Bell Elements
         const quickBellControls = document.getElementById('quickBellControls');
         const quickBellSoundSelect = document.getElementById('quickBellSoundSelect');
@@ -913,6 +927,8 @@
         const changeSoundBellTime = document.getElementById('change-sound-bell-time');
         const changeSoundSelect = document.getElementById('change-sound-select');
         const changeSoundCancelBtn = document.getElementById('change-sound-cancel');
+        // NEW: v3.19 - Play button for change sound modal
+        const previewChangeSoundBtn = document.getElementById('preview-change-sound');
 
         // Linked Edit Modal
         const confirmLinkedEditModal = document.getElementById('confirm-linked-edit-modal');
@@ -1033,7 +1049,8 @@
 
         // Admin Email List
         const ADMIN_EMAIL_LIST = [
-           'jacob.v.wilson@gmail.com'
+           'jacob.v.wilson@gmail.com',
+           'jacob.wilson@sumnerk12.net' // NEW: Added new admin email
            // Add more emails here in the future
         ];
 
@@ -1150,7 +1167,8 @@
         }
 
         // NEW: Helper to format 24h time to 12h AM/PM
-        function formatTime12Hour(timeString) {
+        // MODIFIED: v3.22 - Added omitSecondsIfZero parameter
+        function formatTime12Hour(timeString, omitSecondsIfZero = false) {
             if (!timeString) return "--:--";
             
             try {
@@ -1167,6 +1185,11 @@
 
                 // 'hours' is now a number (1-12), so no leading zero.
                 
+                // NEW: v3.22 - Logic to omit seconds
+                if (omitSecondsIfZero && seconds && parseInt(seconds, 10) === 0) {
+                    seconds = null; // Don't display
+                }
+
                 if (seconds) {
                     return `${hours}:${minutes}:${seconds} ${ampm}`;
                 } else {
@@ -1365,6 +1388,30 @@
             return nextBell;
         }
 
+        // --- NEW: v3.22 - Find the bell that rings after a given bell ---
+        /**
+         * Finds the bell scheduled immediately after the provided bell on the same day.
+         * @param {object} currentBell - The bell object {time, name, ...}
+         * @param {Array} allBells - The merged list of localSchedule and personalBells
+         * @returns {object|null} The next bell object, or null if it's the last bell.
+         */
+        function findBellAfter(currentBell, allBells) {
+            if (!currentBell || allBells.length === 0) return null;
+            // Ensure list is sorted
+            const sortedBells = [...allBells].sort((a, b) => a.time.localeCompare(b.time));
+            
+            const currentIndex = sortedBells.findIndex(b => b.time === currentBell.time && b.name === currentBell.name);
+            
+            if (currentIndex === -1) return null; // Bell not found
+            
+            if (currentIndex + 1 < sortedBells.length) {
+                return sortedBells[currentIndex + 1]; // Return the next bell
+            } else {
+                return null; // This was the last bell of the day
+            }
+        }
+
+        // MODIFIED: v3.22 -> v3.23 - Grammar changes
         function updateClock() {
             const now = new Date();
             const nowTimestamp = now.getTime(); // Get current time in ms
@@ -1373,14 +1420,19 @@
             const seconds = String(now.getSeconds()).padStart(2, '0');
             const currentTimeHHMMSS = `${hours}:${minutes}:${seconds}`;
 
-            clockElement.textContent = `The time is ${currentTimeHHMMSS}. There are`;
+            // --- 1. Update Live Clock Display ---
+            // Use (false) to ensure seconds are always shown for the clock
+            const formattedTime = formatTime12Hour(currentTimeHHMMSS, false); 
+            // MODIFICATION: Removed period after "are"
+            clockElement.textContent = `The time is ${formattedTime}. There are`;
             
-            const nextBell = findNextBell(currentTimeHHMMSS);
+            // --- 2. Find Bells & Calculate Timers ---
+            const allBells = [...localSchedule, ...personalBells];
+            const scheduleBellObject = findNextBell(currentTimeHHMMSS); // The bell we will count down to
             
-            // --- NEW: Quick Bell + Schedule Bell Countdown Logic ---
             let millisToScheduleBell = Infinity;
-            if (nextBell) {
-                const [h, m, s] = nextBell.time.split(':').map(Number);
+            if (scheduleBellObject) {
+                const [h, m, s] = scheduleBellObject.time.split(':').map(Number);
                 const nextBellDate = new Date();
                 nextBellDate.setHours(h, m, s, 0);
                 millisToScheduleBell = nextBellDate.getTime() - nowTimestamp;
@@ -1392,20 +1444,47 @@
 
             const millisToQuickBell = quickBellEndTime ? quickBellEndTime.getTime() - nowTimestamp : Infinity;
             
+            // --- 3. Determine Active Countdown & "Next Bell" Info ---
             let activeTimerLabel = null;
             let activeTimerMillis = Infinity;
             let isMuting = false;
+            let nextBellInfoString = "No more bells today."; // Default "Next Bell" text
 
-            if (millisToScheduleBell < millisToQuickBell && nextBell) {
-                activeTimerLabel = nextBell.name;
+            if (millisToScheduleBell < millisToQuickBell && scheduleBellObject) {
+                // --- A. Counting down to a SCHEDULE BELL ---
+                activeTimerLabel = scheduleBellObject.name;
                 activeTimerMillis = millisToScheduleBell;
-                const nextBellId = getBellId(nextBell);
+                const nextBellId = getBellId(scheduleBellObject);
                 isMuting = mutedBellIds.has(nextBellId);
+                
+                // Find the bell *after* this one for the info display
+                const bellAfter = findBellAfter(scheduleBellObject, allBells);
+                if (bellAfter) {
+                    // Use (true) to omit seconds if they are 00
+                    // MODIFICATION: Added period at the end
+                    nextBellInfoString = `Next bell is ${bellAfter.name} at ${formatTime12Hour(bellAfter.time, true)}.`;
+                } else {
+                    nextBellInfoString = "No more bells today."; // Already has period
+                }
+
             } else if (millisToQuickBell < millisToScheduleBell) {
+                // --- B. Counting down to a QUICK BELL ---
                 activeTimerLabel = "Quick Bell";
                 activeTimerMillis = millisToQuickBell;
                 isMuting = false;
+                
+                // The "next bell" info should be the next *schedule* bell
+                if (scheduleBellObject) {
+                    // Use (true) to omit seconds if they are 00
+                    // MODIFICATION: Added period at the end
+                    nextBellInfoString = `Next bell is ${scheduleBellObject.name} at ${formatTime12Hour(scheduleBellObject.time, true)}.`;
+                } else {
+                    nextBellInfoString = "No more bells today."; // Already has period
+                }
             }
+            
+            // --- 4. Populate Countdown and "Next Bell" Elements ---
+            nextBellInfoElement.textContent = nextBellInfoString;
 
             if (activeTimerLabel) {
                 let totalSeconds = Math.max(0, Math.floor(activeTimerMillis / 1000));
@@ -1425,20 +1504,29 @@
                 countdownElement.textContent = countdownString;
                 
                 if (isMuting) {
-                    nextBellElement.textContent = `until ${activeTimerLabel} (MUTED)`;
+                    // MODIFICATION: Added period
+                    nextBellElement.textContent = `until ${activeTimerLabel} (MUTED).`;
                 } else {
-                    nextBellElement.textContent = `until ${activeTimerLabel}`;
+                    // MODIFICATION: Added period
+                    nextBellElement.textContent = `until ${activeTimerLabel}.`;
                 }
             } else {
+                // --- C. No active timer ---
                 countdownElement.textContent = "--:--";
+                // MODIFICATION: Added period
                 nextBellElement.textContent = "until the next bell.";
+                // "Next Bell" info is already set to "No more bells today."
+                // Or, if school is out, scheduleBellObject is the first bell tomorrow.
+                if (scheduleBellObject) {
+                    // MODIFICATION: Added period
+                    nextBellInfoString = `Next bell is ${scheduleBellObject.name} at ${formatTime12Hour(scheduleBellObject.time, true)}.`;
+                    nextBellInfoElement.textContent = nextBellInfoString;
+                } else {
+                     nextBellInfoElement.textContent = "No bells scheduled."; // Already has period
+                }
             }
-            // --- END NEW Countdown Logic ---
 
-
-            // --- Ring Logic (Scheduled Bells) ---
-            // MODIFIED: v3.03
-            const allBells = [...localSchedule, ...personalBells];
+            // --- 5. Ring Logic (Unchanged) ---
             const bellToRing = allBells.find(bell => bell.time === currentTimeHHMMSS);
             
             // MODIFIED: Added cooldown check
@@ -1469,7 +1557,7 @@
                 if (isAudioReady) statusElement.textContent = "Monitoring...";
             }
         }
-
+        
         // --- NEW: Quick Bell Function ---
         function startQuickBell(minutes) {
             const now = new Date();
@@ -1535,6 +1623,7 @@
                 }
 
 
+                // MODIFIED: v3.19 - Reordered controls
                 return `
                     <div class="bell-item flex items-center justify-between p-4 ${!isFirst ? 'border-t border-gray-200' : ''} hover:bg-gray-50 transition-colors"
                          data-time="${bell.time}" data-name="${safeName}" 
@@ -1543,7 +1632,8 @@
                         
                         <!-- Bell Info (Time, Name, Sound) (left) -->
                         <div class="flex items-center space-x-4 min-w-0 flex-grow">
-                            <span class="text-xl font-medium text-blue-600 tabular-nums">${formatTime12Hour(bell.time)}</span>
+                            <!-- MODIFIED: v3.22 - Use (false) to always show seconds in list -->
+                            <span class="text-xl font-medium text-blue-600 tabular-nums">${formatTime12Hour(bell.time, false)}</span>
                             <div class="min-w-0">
                                 <span class="font-medium text-gray-800 truncate block" title="${safeName}">${safeName}</span>
                                 <!-- MODIFIED: Updated sound display logic -->
@@ -1552,25 +1642,35 @@
                             </div>
                         </div>
                         
-                        <!-- Right side controls (Mute + Edit/Delete) -->
-                        <div class="flex-shrink-0 flex items-center space-x-4">
+                        <!-- Right side controls (Audio + Admin) -->
+                        <div class="flex-shrink-0 flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-2 sm:gap-0">
                         
-                            <!-- Mute Control (Label + Checkbox) -->
-                            <label class="flex items-center space-x-2 cursor-pointer">
-                                <span class="text-sm font-medium text-gray-700">Mute</span>
-                                <input type="checkbox" class="bell-mute-toggle h-5 w-5 text-blue-600 rounded focus:ring-blue-500" 
-                                       data-bell-id="${bellId}" ${isMuted ? 'checked' : ''} 
-                                       aria-label="Mute this bell">
-                            </label>
-
-                            <!-- Edit/Delete Buttons -->
-                            <div class="flex-shrink-0 space-x-2">
-                                <!-- NEW: "Sound" button for all users on shared bells -->
+                            <!-- Group 1: Audio Controls (Sound, Play, Mute) -->
+                            <div class="flex items-center space-x-2">
+                                
+                                <!-- 1. "Sound" Button (Shared Bells only) -->
                                 <button class="sound-btn px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                                         style="${isCustom ? 'display: none;' : ''}"
                                         aria-label="Change sound for ${safeName}"
                                         title="Change sound">Sound</button>
                                 
+                                <!-- 2. "Play" Button (NEW for all bells) -->
+                                <!-- **** MODIFIED: v3.20 - Changed classes for alignment **** -->
+                                <button class="preview-bell-btn px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300" 
+                                        aria-label="Play sound for ${safeName}"
+                                        title="Play Sound">&#9654;</button>
+
+                                <!-- 3. "Mute" Control (Label + Checkbox) -->
+                                <label class="flex items-center space-x-2 cursor-pointer p-1"> <!-- Added p-1 for better touch target -->
+                                    <span class="text-sm font-medium text-gray-700">Mute</span>
+                                    <input type="checkbox" class="bell-mute-toggle h-5 w-5 text-blue-600 rounded focus:ring-blue-500" 
+                                           data-bell-id="${bellId}" ${isMuted ? 'checked' : ''} 
+                                           aria-label="Mute this bell">
+                                </label>
+                            </div>
+
+                            <!-- Group 2: Admin/Edit Controls -->
+                            <div class="flex-shrink-0 space-x-2">
                                 <!-- Admin-only Edit (Time/Name) button -->
                                 <button class="edit-btn px-3 py-1 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
                                         aria-label="Edit shared bell ${safeName}"
@@ -1763,7 +1863,7 @@
                 pendingPersonalBell = { time, name, sound, type: 'custom' };
                 // Show modal
                 nearbyBellName.textContent = nearbyBell.name;
-                nearbyBellTime.textContent = formatTime12Hour(nearbyBell.time);
+                nearbyBellTime.textContent = formatTime12Hour(nearbyBell.time, true); // v3.22
                 nearbyBellCustomControls.style.display = 'flex';
                 nearbyBellModal.classList.remove('hidden');
             } else {
@@ -1804,7 +1904,11 @@
                 // **** YOU MUST RESTRICT THIS API KEY IN THE GOOGLE CLOUD CONSOLE ****
                 const firebaseConfig = {
                     apiKey: "AIzaSyDfo45UBu-pR8nqMQhVlS_QgyYZ2kzBdvM",
-                    authDomain: "ellisbell-c185c.firebaseapp.com",
+                    // MODIFIED: v3.17 - Reverted authDomain.
+                    // The github.io domain caused a 404.
+                    // The "missing initial state" error in Firefox must be solved
+                    // by disabling Enhanced Tracking Protection (ETP) for the site.
+                    authDomain: "ellisbell-c185c.firebaseapp.com", 
                     projectId: "ellisbell-c185c",
                     storageBucket: "ellisbell-c185c.firebasestorage.app",
                     appId: "1:441560045695:web:94e51a006663404b8f474a"
@@ -2057,6 +2161,11 @@
                 }));
                 allSchedules.sort((a, b) => a.name.localeCompare(b.name));
                 console.log("Loaded all shared schedules:", allSchedules.length);
+
+                // **** MODIFIED: v3.18 - This logic was moved from v3.18 ****
+                // The dropdown is disabled by default, we must enable it now.
+                scheduleSelector.disabled = false;
+                
                 renderScheduleSelector();
             } catch (error) {
                 console.error("Error loading all shared schedules: ", error);
@@ -2260,7 +2369,7 @@
          * @param {string} name - The name of the bell to check
          * @returns {object} { internal: bell|null, external: [{schedule, bell}] }
          */
-        function findAllNearbySharedBells(time, name) {
+        function findAllNearbySharedBells(time) {
             const newTimeInSeconds = timeToSeconds(time);
             if (isNaN(newTimeInSeconds)) return { internal: null, external: [] };
 
@@ -2426,7 +2535,7 @@
                 console.log("Schedule restored.");
                 
                 // MODIFIED: v3.09 - No longer need to call loadPersonalSchedules()
-                // The onSnapshot listener will handle the update.
+                // The listener will handle the update.
                 scheduleSelector.value = `personal-${activePersonalScheduleId}`;
                 setActiveSchedule(scheduleSelector.value);
 
@@ -2569,8 +2678,8 @@
                 currentInternalConflict = conflicts.internal; // Store conflict
                 
                 // Populate and show Initial Warning Modal
-                internalConflictNewTime.textContent = formatTime12Hour(time);
-                internalConflictExistingBell.textContent = `${conflicts.internal.name} at ${formatTime12Hour(conflicts.internal.time)}`;
+                internalConflictNewTime.textContent = formatTime12Hour(time, true); // v3.22
+                internalConflictExistingBell.textContent = `${conflicts.internal.name} at ${formatTime12Hour(conflicts.internal.time, true)}`; // v3.22
                 internalConflictWarningModal.classList.remove('hidden');
                 return; // Stop. Action will resume from modal buttons.
             }
@@ -2581,8 +2690,8 @@
                 currentExternalConflicts = conflicts.external; // Store conflicts
                 
                 // Populate and show External Conflict Modal
-                externalConflictNewTime.textContent = formatTime12Hour(time);
-                externalConflictKeepTime.textContent = formatTime12Hour(time);
+                externalConflictNewTime.textContent = formatTime12Hour(time, true); // v3.22
+                externalConflictKeepTime.textContent = formatTime12Hour(time, true); // v3.22
                 
                 // Populate list
                 externalConflictList.innerHTML = conflicts.external.map(c => {
@@ -2596,7 +2705,7 @@
                                class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 external-conflict-check">
                         <label for="${checkId}" class="ml-2 block text-sm text-gray-900">
                             <span class="font-medium">${c.schedule.name}:</span>
-                            <span>${c.bell.name} at ${formatTime12Hour(c.bell.time)}</span>
+                            <span>${c.bell.name} at ${formatTime12Hour(c.bell.time, true)}</span> <!-- v3.22 -->
                         </label>
                     </div>
                 `}).join('');
@@ -2831,7 +2940,7 @@
             if (checkedCheckboxes.length === 1) {
                 externalConflictMatchBtn.disabled = false;
                 const time = checkedCheckboxes[0].dataset.bellTime;
-                externalConflictMatchTime.textContent = formatTime12Hour(time);
+                externalConflictMatchTime.textContent = formatTime12Hour(time, true); // v3.22
             } else {
                 externalConflictMatchBtn.disabled = true;
                 externalConflictMatchTime.textContent = "--:--";
@@ -2900,6 +3009,18 @@
                 updateClock(); 
                 return; 
             }
+            
+            // NEW: v3.19 - Handle Play Button
+            if (target.classList.contains('preview-bell-btn')) {
+                const bellElement = target.closest('[data-time]');
+                if (bellElement) {
+                    const soundToPlay = bellElement.dataset.sound;
+                    if (soundToPlay) {
+                        playBell(soundToPlay);
+                    }
+                }
+                return; // Stop processing
+            }
 
             const bellElement = target.closest('[data-time]');
             if (!bellElement) return;
@@ -2923,7 +3044,7 @@
 
         function handleDeleteBellClick(time, name, type) {
             bellToDelete = { time, name, type };
-            confirmDeleteBellText.textContent = `Are you sure you want to delete the bell "${name}" at ${formatTime12Hour(time)}?`;
+            confirmDeleteBellText.textContent = `Are you sure you want to delete the bell "${name}" at ${formatTime12Hour(time, true)}?`; // v3.22
             confirmDeleteBellModal.classList.remove('hidden');
         }
         
@@ -3024,7 +3145,7 @@
                 // Note: This is a custom modal, not window.confirm
                 // TODO: This logic should be updated to use a custom modal
                 // For now, let's just log a warning and proceed
-                console.warn(`This new time (${formatTime12Hour(newBellData.time)}) is within 1 minute of "${nearbyBell.name}" (${formatTime12Hour(nearbyBell.time)}).`);
+                console.warn(`This new time (${formatTime12Hour(newBellData.time, true)}) is within 1 minute of "${nearbyBell.name}" (${formatTime12Hour(nearbyBell.time, true)}).`); // v3.22
                 // if (!confirm(`This new time (${formatTime12Hour(newBellData.time)}) is within 1 minute of "${nearbyBell.name}" (${formatTime12Hour(nearbyBell.time)}). Are you sure you want to save?`)) {
                 //     return; // User cancelled
                 // }
@@ -3081,7 +3202,7 @@
         function openChangeSoundModal(bell) {
             currentChangingSoundBell = bell;
             changeSoundBellName.textContent = bell.name;
-            changeSoundBellTime.textContent = formatTime12Hour(bell.time);
+            changeSoundBellTime.textContent = formatTime12Hour(bell.time, true); // v3.22
             // Set dropdown to the *current* sound (which might be an override)
             changeSoundSelect.value = bell.sound;
             changeSoundModal.classList.remove('hidden');
@@ -3181,7 +3302,7 @@
                 <div class="flex items-center">
                     <input type="checkbox" id="linked-${s.id}" value="${s.id}" checked 
                            class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 linked-schedule-check">
-                    <label for="linked-${s.id}" class="ml-2 block text-sm text-gray-900">${s.name} (bell at ${formatTime12Hour(s.bell.time)})</label>
+                    <label for="linked-${s.id}" class="ml-2 block text-sm text-gray-900">${s.name} (bell at ${formatTime12Hour(s.bell.time, true)})</label> <!-- v3.22 -->
                 </div>
             `).join('');
         }
@@ -4080,8 +4201,8 @@
                 // Show Step 2
                 internalConflictWarningModal.classList.add('hidden');
                 
-                const newTime = formatTime12Hour(pendingSharedBell.time);
-                const existing = `${currentInternalConflict.name} at ${formatTime12Hour(currentInternalConflict.time)}`;
+                const newTime = formatTime12Hour(pendingSharedBell.time, true); // v3.22
+                const existing = `${currentInternalConflict.name} at ${formatTime12Hour(currentInternalConflict.time, true)}`; // v3.22
                 const diff = Math.abs(timeToSeconds(pendingSharedBell.time) - timeToSeconds(currentInternalConflict.time));
 
                 internalConflictFinalNewTime.textContent = newTime;
@@ -4122,7 +4243,9 @@
             // NEW: Modals (Change Sound)
             changeSoundForm.addEventListener('submit', handleChangeSoundSubmit);
             changeSoundCancelBtn.addEventListener('click', closeChangeSoundModal);
-
+            // NEW: v3.19 - Add play button listener
+            previewChangeSoundBtn.addEventListener('click', () => playBell(changeSoundSelect.value));
+            
             // Modals (Multi-Add)
             showAddBellModalBtn.addEventListener('click', showMultiAddModal);
             multiAddBellForm.addEventListener('submit', handleMultiAddSubmit);
@@ -4224,4 +4347,4 @@ The new admin will have admin privileges (including the "Make Public" button) th
 -->
 
 <!-- MODIFIED: Version Bump -->
-<!-- Version 3.10 -->
+<!-- Version 3.23 -->
