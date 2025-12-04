@@ -1,14 +1,10 @@
-        const APP_VERSION = "5.53.0"
-        // V5.53.0: Cloud Sync for User Preferences
-        // - Period visual overrides now sync to Firestore
-        // - Sound overrides now sync to Firestore
-        // - Period nicknames now sync to Firestore
-        // - Muted bells now sync to Firestore
-        // - Warning settings now sync to Firestore
-        // - Kiosk mode preference now syncs to Firestore
-        // - Real-time listener for cross-device sync
-        // - localStorage serves as offline cache
-        // V5.52.1: Warning Color Customization + Settings Button Move
+        const APP_VERSION = "5.54.5"
+        // V5.54.5: Bug fix - relative bells anchored to relative "Period Start" bells orphan
+        // - When a custom period's "Period Start" is itself relative (anchored to a shared period),
+        //   the save logic was incorrectly converting to a stable anchor (parentPeriodName + parentAnchorType)
+        // - Resolution failed because the "Period Start" bell doesn't have anchorRole and is relative
+        // - Fix: Don't convert to stable anchor if the anchor bell is itself relative; keep parentBellId
+        // V5.54.4: Bug fix - infinite recursion in getVisualHtml
         // - Now clones entire quickBellControls from main page instead of recreating
         // - Copies main page stylesheets (Tailwind) for consistent styling
         // - Custom quick bells work by cloning already-rendered buttons
@@ -1043,13 +1039,13 @@
                     if (data.warningSettings) {
                         warningSettings = { ...warningSettings, ...data.warningSettings };
                         localStorage.setItem('countdownWarningSettings', JSON.stringify(warningSettings));
-                        applyWarningColors();
+                        // Note: applyWarningColors() called in init() after this completes
                     }
                     
                     if (typeof data.kioskModeEnabled === 'boolean') {
                         kioskModeEnabled = data.kioskModeEnabled;
                         localStorage.setItem('kioskModeEnabled', kioskModeEnabled ? 'true' : 'false');
-                        applyKioskMode(kioskModeEnabled);
+                        // Note: applyKioskMode() called in init() after this completes
                     }
                     
                     return true; // Cloud data was loaded
@@ -1108,23 +1104,23 @@
                     if (data.mutedBellIds && Array.isArray(data.mutedBellIds)) {
                         mutedBellIds = new Set(data.mutedBellIds);
                         localStorage.setItem('mutedBellIds', JSON.stringify(data.mutedBellIds));
-                        updateMuteButtonStates();
                     }
                     
                     if (data.warningSettings) {
                         warningSettings = { ...warningSettings, ...data.warningSettings };
                         localStorage.setItem('countdownWarningSettings', JSON.stringify(warningSettings));
-                        applyWarningColors();
+                        // Colors applied via CSS variables on next warning check
                     }
                     
                     if (typeof data.kioskModeEnabled === 'boolean') {
                         kioskModeEnabled = data.kioskModeEnabled;
                         localStorage.setItem('kioskModeEnabled', kioskModeEnabled ? 'true' : 'false');
-                        applyKioskMode(kioskModeEnabled);
+                        // Kiosk mode state updated, will apply on next toggle or refresh
                     }
                     
-                    // Re-render the bell list to reflect any visual/sound changes
-                    renderCombinedBellList();
+                    // Note: Visual changes will apply on next page interaction or refresh
+                    // Real-time sync updates the data, UI updates on next render cycle
+                    console.log('[CloudSync] Preferences synced from another device');
                 }
             }, (error) => {
                 console.error('[CloudSync] Error listening to preferences:', error);
@@ -3672,6 +3668,7 @@
 
                     // 2b. Find the parent *period*
                     const parentPeriod = allPeriods.find(p => p.name === parentPeriodName);
+                    
                     if (!parentPeriod || !parentPeriod.bells || parentPeriod.bells.length === 0) {
                         console.warn(`Could not find parent period "${parentPeriodName}" for bell "${bell.name}". It may be orphaned.`);
                         return { ...bell, isOrphan: true, fallbackTime: "00:00:00" };
@@ -3798,12 +3795,6 @@
                             console.warn(`Assigned new bellId to legacy bell: ${bell.name}`);
                         }
                         bellMap.set(bell.bellId, bell);
-                        // DELETED: Old logic
-                        // if (bell.bellId) {
-                        //     bellMap.set(bell.bellId, bell);
-                        // } else {
-                        //     console.warn("Found a bell with no bellId:", bell.name);
-                        // }
                     });
                 });
 
@@ -7356,8 +7347,8 @@
                 addStaticBellStatus.classList.add('hidden');
     
                 // 6. Populate sound dropdowns
-                // MODIFIED in 4.40: Use sharedSoundInput as the template, not the deleted personalSoundInput
                 const sharedSoundSelect = document.getElementById('shared-bell-sound');
+                
                 if (addStaticBellSound && sharedSoundSelect) {
                     updateSoundDropdowns();
                     addStaticBellSound.innerHTML = sharedSoundSelect.innerHTML;
@@ -7579,17 +7570,24 @@
                 // --- NEW in 4.48: Check if we can use a stable anchor ---
                 // MODIFIED V5.44.1: For cross-period anchoring, check if the anchor bell is 
                 // the first or last bell of ITS period (not the period we're adding to)
+                // MODIFIED V5.54.5: Don't convert to stable anchor if the anchor bell is itself relative
                 
                 // Find which period the anchor bell belongs to
                 let anchorPeriod = null;
+                let anchorBellObj = null;
                 for (const p of calculatedPeriodsList) {
-                    if (p.bells && p.bells.some(b => b.bellId === parentBellId)) {
+                    const foundBell = p.bells?.find(b => b.bellId === parentBellId);
+                    if (foundBell) {
                         anchorPeriod = p;
+                        anchorBellObj = foundBell;
                         break;
                     }
                 }
                 
-                if (anchorPeriod && anchorPeriod.bells.length > 0) {
+                // V5.54.5: Check if anchor bell is relative - if so, keep the parentBellId reference
+                const anchorBellIsRelative = anchorBellObj && anchorBellObj.relative;
+                
+                if (anchorPeriod && anchorPeriod.bells.length > 0 && !anchorBellIsRelative) {
                     const firstBell = anchorPeriod.bells[0];
                     const lastBell = anchorPeriod.bells[anchorPeriod.bells.length - 1];
 
@@ -7613,6 +7611,9 @@
                         // It's anchored to a middle bell - keep the parentBellId
                         console.log(`Keeping parentBellId ${parentBellId} - anchor is not a period start/end.`);
                     }
+                } else if (anchorBellIsRelative) {
+                    // V5.54.5: Anchor is a relative bell, keep the direct reference
+                    console.log(`Keeping parentBellId ${parentBellId} - anchor bell is itself relative.`);
                 } else {
                     console.warn(`Could not find anchor period for parentBellId ${parentBellId}`);
                 }
@@ -8642,6 +8643,7 @@
                     document.getElementById('multi-relative-bell-visual'),
                     document.getElementById('passing-period-visual-select') // NEW V5.42.0
                 ];
+                
                 // 1. Create options for default SVGs (dynamically)
                 // MODIFIED V4.61: Removed static number options ('1st Period', '2nd Period')
                 const defaultVisuals = ['Lunch', 'Passing Period'];
@@ -8672,8 +8674,10 @@
                 }).join('');
 
                 // 4. Populate all select elements
-                selects.forEach(select => {
-                    if (!select) return;
+                selects.forEach((select, index) => {
+                    if (!select) {
+                        return;
+                    }
                     
                     const currentValue = select.value; // Preserve current selection if possible
                     select.innerHTML = `
@@ -8699,13 +8703,15 @@
              * MODIFIED V5.29.0: Support [BG:#hexcolor] prefix for custom backgrounds
              * MODIFIED V5.45.2: Proper support for [BG:] with [DEFAULT] SVGs
              */
-            function getVisualHtml(value, periodName) {
+            function getVisualHtml(value, periodName, _skipOverrideLookup = false) {
                 // V5.29.0: Check for background color prefix
                 let customBgColor = null;
+                let hadBgPrefix = false;
                 if (value && value.startsWith('[BG:')) {
                     const parsed = parseVisualBgColor(value);
                     customBgColor = parsed.bgColor;
                     value = parsed.baseValue;
+                    hadBgPrefix = true; // V5.54.4: Track that we parsed a BG prefix
                 }
 
                 let baseHtml = '';
@@ -8713,12 +8719,16 @@
                 if (!value) {
                     // Case 1: Value is "" (None/Default)
                     // FIX V5.42.9: Check for user's custom period visual override
-                    const visualKey = getVisualOverrideKey(activeBaseScheduleId, periodName);
-                    const periodOverride = periodVisualOverrides[visualKey];
-                    if (periodOverride && periodOverride !== '') {
-                        // User has a custom visual for this period - use it
-                        // Recursive call to handle the override value (could be URL, custom text, etc.)
-                        return getVisualHtml(periodOverride, periodName);
+                    // FIX V5.54.4: Don't look up override if we just parsed a BG-only value (prevents infinite recursion)
+                    if (!_skipOverrideLookup && !hadBgPrefix) {
+                        const visualKey = getVisualOverrideKey(activeBaseScheduleId, periodName);
+                        const periodOverride = periodVisualOverrides[visualKey];
+                        if (periodOverride && periodOverride !== '') {
+                            // User has a custom visual for this period - use it
+                            // Recursive call to handle the override value (could be URL, custom text, etc.)
+                            // Pass true to skip override lookup in the recursive call
+                            return getVisualHtml(periodOverride, periodName, true);
+                        }
                     }
                     // No override - use generated default
                     // V5.45.2: If custom bg, use raw SVG to avoid nested backgrounds
@@ -12423,6 +12433,16 @@
                 const bulkEditCancel = document.getElementById('bulk-edit-cancel');
                 const bulkPreviewSound = document.getElementById('bulk-preview-sound');
                 const bulkEditStatus = document.getElementById('bulk-edit-status');
+                
+                // V5.54.0: Time Shift elements
+                const bulkTimeShiftEnabled = document.getElementById('bulk-time-shift-enabled');
+                const bulkTimeShiftControls = document.getElementById('bulk-time-shift-controls');
+                const bulkTimeShiftDirection = document.getElementById('bulk-time-shift-direction');
+                const bulkTimeShiftHours = document.getElementById('bulk-time-shift-hours');
+                const bulkTimeShiftMinutes = document.getElementById('bulk-time-shift-minutes');
+                const bulkTimeShiftSeconds = document.getElementById('bulk-time-shift-seconds');
+                const bulkTimeShiftWarning = document.getElementById('bulk-time-shift-warning');
+                const bulkTimeShiftWarningText = document.getElementById('bulk-time-shift-warning-text');
 
                 // Show bulk edit button when user has a personal schedule
                 function updateBulkEditButtonVisibility() {
@@ -12494,8 +12514,28 @@
                     bulkVisualModeContainer.classList.add('hidden');
                     bulkEditStatus.classList.add('hidden');
                     
+                    // V5.54.0: Reset time shift controls
+                    if (bulkTimeShiftEnabled) {
+                        bulkTimeShiftEnabled.checked = false;
+                        bulkTimeShiftControls.classList.add('hidden');
+                        bulkTimeShiftDirection.value = 'later';
+                        bulkTimeShiftHours.value = '0';
+                        bulkTimeShiftMinutes.value = '5';
+                        bulkTimeShiftSeconds.value = '0';
+                        bulkTimeShiftWarning.classList.add('hidden');
+                    }
+                    
                     bulkEditModal.classList.remove('hidden');
                 }
+                
+                // V5.54.0: Time shift checkbox toggle
+                bulkTimeShiftEnabled?.addEventListener('change', () => {
+                    if (bulkTimeShiftEnabled.checked) {
+                        bulkTimeShiftControls.classList.remove('hidden');
+                    } else {
+                        bulkTimeShiftControls.classList.add('hidden');
+                    }
+                });
 
                 function populateBulkEditDropdowns() {
                     // Populate sound dropdown
@@ -12581,9 +12621,27 @@
                     const newVisual = bulkEditVisual.value;
                     const newVisualMode = document.querySelector('input[name="bulk-visual-mode"]:checked')?.value || 'before';
                     
+                    // V5.54.0: Get time shift values
+                    const isTimeShiftEnabled = bulkTimeShiftEnabled?.checked || false;
+                    const timeShiftDirection = bulkTimeShiftDirection?.value || 'later';
+                    const timeShiftHours = parseInt(bulkTimeShiftHours?.value) || 0;
+                    const timeShiftMinutes = parseInt(bulkTimeShiftMinutes?.value) || 0;
+                    const timeShiftSeconds = parseInt(bulkTimeShiftSeconds?.value) || 0;
+                    let totalShiftSeconds = (timeShiftHours * 3600) + (timeShiftMinutes * 60) + timeShiftSeconds;
+                    if (timeShiftDirection === 'earlier') {
+                        totalShiftSeconds = -totalShiftSeconds;
+                    }
+                    
                     // Nothing to change
-                    if (newSound === '[NO_CHANGE]' && newVisual === '[NO_CHANGE]') {
+                    if (newSound === '[NO_CHANGE]' && newVisual === '[NO_CHANGE]' && !isTimeShiftEnabled) {
                         bulkEditStatus.textContent = 'Please select at least one change.';
+                        bulkEditStatus.classList.remove('hidden');
+                        return;
+                    }
+                    
+                    // V5.54.0: Validate time shift
+                    if (isTimeShiftEnabled && totalShiftSeconds === 0) {
+                        bulkEditStatus.textContent = 'Time shift amount cannot be zero.';
                         bulkEditStatus.classList.remove('hidden');
                         return;
                     }
@@ -12594,6 +12652,8 @@
                         
                         let updatedCustomCount = 0;
                         let updatedSharedCount = 0;
+                        let timeShiftedCount = 0;
+                        let skippedSharedTimeShift = 0;
                         
                         // --- Identify which bells are custom vs shared ---
                         const allCalculatedBells = [...localSchedule, ...personalBells];
@@ -12631,6 +12691,35 @@
                                             updatedBell.visualMode = newVisual === '' ? 'none' : newVisualMode;
                                         }
                                         
+                                        // V5.54.0: Handle time shift for custom bells
+                                        if (isTimeShiftEnabled && totalShiftSeconds !== 0) {
+                                            if (bell.relative) {
+                                                // Relative bell - adjust the offset
+                                                const currentOffset = bell.relative.offsetSeconds || 0;
+                                                updatedBell.relative = {
+                                                    ...bell.relative,
+                                                    offsetSeconds: currentOffset + totalShiftSeconds
+                                                };
+                                                timeShiftedCount++;
+                                            } else if (bell.time) {
+                                                // Static bell - adjust the actual time
+                                                const [h, m, s] = bell.time.split(':').map(Number);
+                                                let totalSeconds = (h * 3600) + (m * 60) + (s || 0);
+                                                totalSeconds += totalShiftSeconds;
+                                                
+                                                // Handle day wraparound
+                                                while (totalSeconds < 0) totalSeconds += 86400;
+                                                while (totalSeconds >= 86400) totalSeconds -= 86400;
+                                                
+                                                const newH = Math.floor(totalSeconds / 3600);
+                                                const newM = Math.floor((totalSeconds % 3600) / 60);
+                                                const newS = totalSeconds % 60;
+                                                
+                                                updatedBell.time = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}:${String(newS).padStart(2, '0')}`;
+                                                timeShiftedCount++;
+                                            }
+                                        }
+                                        
                                         updatedCustomCount++;
                                         return updatedBell;
                                     }
@@ -12649,6 +12738,9 @@
                         sharedBellsToUpdate.forEach(bell => {
                             const bellId = bell.bellId || getBellId(bell);
                             
+                            // V5.54.1: Track if we actually change anything on this shared bell
+                            let sharedBellChanged = false;
+                            
                             // Initialize override object if needed
                             if (!bellOverrides[bellId]) {
                                 bellOverrides[bellId] = {};
@@ -12657,6 +12749,7 @@
                             // V5.46.4: Handle sound override (Firestore only for cross-device sync)
                             if (newSound !== '[NO_CHANGE]') {
                                 bellOverrides[bellId].sound = newSound;
+                                sharedBellChanged = true;
                             }
                             
                             // Handle visual override (uses Firestore bellOverrides)
@@ -12669,6 +12762,12 @@
                                     bellOverrides[bellId].visualCue = newVisual;
                                     bellOverrides[bellId].visualMode = newVisualMode;
                                 }
+                                sharedBellChanged = true;
+                            }
+                            
+                            // V5.54.0: Time shift cannot apply to shared bells (unless admin)
+                            if (isTimeShiftEnabled) {
+                                skippedSharedTimeShift++;
                             }
                             
                             // Clean up empty override objects
@@ -12676,7 +12775,10 @@
                                 delete bellOverrides[bellId];
                             }
                             
-                            updatedSharedCount++;
+                            // V5.54.1: Only count as updated if something actually changed
+                            if (sharedBellChanged) {
+                                updatedSharedCount++;
+                            }
                         });
                         
                         // Save everything to Firestore
@@ -12688,8 +12790,40 @@
                         // V5.46.4: Update local state immediately
                         personalBellOverrides = bellOverrides;
                         
+                        // V5.54.1: Build accurate status message
                         const totalUpdated = updatedCustomCount + updatedSharedCount;
-                        bulkEditStatus.textContent = `Updated ${totalUpdated} bell${totalUpdated !== 1 ? 's' : ''}!`;
+                        let statusMsg = '';
+                        
+                        if (totalUpdated > 0) {
+                            statusMsg = `Updated ${totalUpdated} bell${totalUpdated !== 1 ? 's' : ''}`;
+                        }
+                        
+                        if (isTimeShiftEnabled) {
+                            if (timeShiftedCount > 0) {
+                                const direction = totalShiftSeconds > 0 ? 'later' : 'earlier';
+                                const absSeconds = Math.abs(totalShiftSeconds);
+                                const shiftH = Math.floor(absSeconds / 3600);
+                                const shiftM = Math.floor((absSeconds % 3600) / 60);
+                                const shiftS = absSeconds % 60;
+                                let shiftStr = '';
+                                if (shiftH > 0) shiftStr += `${shiftH}h `;
+                                if (shiftM > 0) shiftStr += `${shiftM}m `;
+                                if (shiftS > 0) shiftStr += `${shiftS}s`;
+                                if (statusMsg) statusMsg += ' — ';
+                                statusMsg += `${timeShiftedCount} bell${timeShiftedCount !== 1 ? 's' : ''} shifted ${shiftStr.trim()} ${direction}`;
+                            }
+                            if (skippedSharedTimeShift > 0) {
+                                if (statusMsg) statusMsg += '. ';
+                                statusMsg += `⚠️ ${skippedSharedTimeShift} shared bell${skippedSharedTimeShift !== 1 ? 's' : ''} can't be time-shifted`;
+                            }
+                        }
+                        
+                        // Handle case where nothing was actually changed
+                        if (!statusMsg) {
+                            statusMsg = 'No changes applied';
+                        }
+                        
+                        bulkEditStatus.textContent = statusMsg + (statusMsg.includes('⚠️') ? '' : '!');
                         
                         // Exit bulk edit mode
                         setTimeout(() => {
