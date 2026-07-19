@@ -1,11 +1,15 @@
 /**
  * Ellis Web Bell - Service Worker
- * Version: 1.2.0
+ * Version: 1.3.0
  * 
  * Provides:
  * - Offline caching of core app files
  * - Background sync capabilities
  * - Install prompt support
+ *
+ * v1.3.0 changelog (2026-07):
+ * - Cache bump v3 -> v4 so every client re-fetches script.js, which gained
+ *   the presence-reporting block in app 5.69.5 (its only change).
  *
  * v1.2.0 changelog (2026-04):
  * - Added /signage/ assets: dashboard.html, dashclock.html, dashright.html, and
@@ -27,8 +31,8 @@
  *   to fetch them).
  */
 
-const CACHE_NAME = 'ellis-web-bell-v3';
-const CACHE_VERSION = '1.2.0';
+const CACHE_NAME = 'ellis-web-bell-v4';
+const CACHE_VERSION = '1.3.0';
 
 // Core files to cache for offline use
 const CORE_ASSETS = [
