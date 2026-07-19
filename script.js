@@ -1,4 +1,16 @@
-const APP_VERSION = "5.69.4"
+const APP_VERSION = "5.69.5"
+// V5.69.5: PRESENCE REPORTING ONLY (backport of the 6.x line's 28-presence.js).
+// - Appended a self-contained heartbeat block at the very BOTTOM of this file
+//   (search "PRESENCE REPORTING" ) + serverTimestamp added to the firestore
+//   import above. NOTHING else changed. Writes go to a path no other code in
+//   this version touches (public/data/presence/{uid}); every write is
+//   try/caught so telemetry can never disturb the bell app.
+// - Deliberately NOT numbered 5.70.x: those numbers are taken by the alpha
+//   line's Carolina palette passes (see the note at the end of the V5.69.1
+//   entry below); reusing them here would corrupt the archaeology.
+// - Requires the presence block in firestore.rules to be published (ships
+//   with the alpha 6.4.0 batch; one console publish covers every channel —
+//   until then, writes fail silently and harmlessly).
 // V5.69.4: PiP broadcast toggle fix
 // - Removed the broadcast toggle from the Picture-in-Picture popup. The toggle
 //   was being deep-cloned into the PiP from the main page's #quickBellControls,
@@ -281,7 +293,7 @@ const APP_VERSION = "5.69.4"
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 
 import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signOut, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel, deleteDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, setDoc, updateDoc, collection, getDocs, writeBatch, setLogLevel, deleteDoc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 // MODIFIED: Removed refFromURL, which was causing the error.
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll, getMetadata, updateMetadata, getBytes } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
@@ -16954,3 +16966,61 @@ window.addEventListener('beforeunload', () => {
         console.warn("Error during app cleanup:", e);
     }
 });
+
+
+// ============================================================================
+// V5.69.5: PRESENCE REPORTING (backport of 6.x 28-presence.js — sole change)
+// Reports who is signed in, on which app version, running which schedule, to
+// artifacts/{appId}/public/data/presence/{uid} for the admin usage dashboard
+// (which lives on the 6.4.0+ channel; this channel only WRITES).
+// Cadence: a 30s local check that writes only when the visible schedule label
+// changes or 5 minutes have passed; hidden tabs pause (catch-up write when
+// the tab returns). ~12 writes/hour/user. All names are presence-prefixed and
+// IIFE-scoped to guarantee zero collisions with the rest of this file.
+// ============================================================================
+(function startPresenceReporting() {
+    const PRESENCE_HEARTBEAT_MS = 5 * 60 * 1000;
+    const PRESENCE_CHECK_MS = 30 * 1000;
+    let presenceLastWriteAt = 0;
+    let presenceLastLabel = null;
+
+    function presenceLabel() {
+        const opt = scheduleSelector && scheduleSelector.selectedOptions
+            && scheduleSelector.selectedOptions[0];
+        return opt ? opt.textContent.trim() : null;
+    }
+
+    async function presenceWrite() {
+        if (!userId || !db || !appId) return;
+        const label = presenceLabel();
+        presenceLastWriteAt = Date.now();
+        presenceLastLabel = label;
+        try {
+            const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'presence', userId);
+            await setDoc(presenceRef, {
+                lastSeen: serverTimestamp(),
+                appVersion: APP_VERSION,
+                surface: 'app',
+                scheduleLabel: label,
+                displayName: (auth && auth.currentUser
+                    && (auth.currentUser.displayName || auth.currentUser.email)) || 'Anonymous',
+            }, { merge: true });
+        } catch (e) {
+            // Telemetry must never disturb the bell app.
+            console.warn('presence write failed:', e && e.message);
+        }
+    }
+
+    function presenceBeat() {
+        if (!userId || !db || !appId) return;
+        if (document.hidden) return;
+        const label = presenceLabel();
+        if (Date.now() - presenceLastWriteAt >= PRESENCE_HEARTBEAT_MS
+            || label !== presenceLastLabel) presenceWrite();
+    }
+
+    setInterval(presenceBeat, PRESENCE_CHECK_MS);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) presenceBeat();
+    });
+})();
