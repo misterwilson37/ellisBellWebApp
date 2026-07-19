@@ -1,4 +1,127 @@
-const APP_VERSION = "5.59.1"
+const APP_VERSION = "5.69.4"
+// V5.69.4: PiP broadcast toggle fix
+// - Removed the broadcast toggle from the Picture-in-Picture popup. The toggle
+//   was being deep-cloned into the PiP from the main page's #quickBellControls,
+//   but the cloned button's inline onclick="toggleBroadcastMode()" referenced a
+//   function that doesn't exist in the PiP window's scope — silently no-op. Also
+//   created a duplicate-ID conflict with the main-page toggle.
+// - Broadcast sync still works as expected via the main-page toggle. The PiP is
+//   meant for at-a-glance bell display, not configuration.
+// V5.69.1: Carolina Blue palette — foundation pass (Tier 2 of audit, part 1 of ~3)
+// - Light/dark theme objects now use Carolina Blue hues instead of
+//   Tailwind blue-600/blue-400:
+//     Light accent: #38759E (Carolina Deep, WCAG AA-compliant on white at 4.99:1)
+//     Dark accent:  #8FC3E8 (Carolina Sky, excellent contrast on dark at 9.41:1)
+//     Bold accent:  #4B9CD3 (canonical Carolina Blue, used for large surfaces)
+// - Added --theme-accent-bold custom property for buttons/headers/backgrounds
+//   where contrast requirements are relaxed (large text / non-text UI).
+//   Existing --theme-accent remains the text-safe variant.
+// - Visual cue default background: 18 instances of #4338CA (indigo) replaced
+//   with #4B9CD3 (Carolina). Audited in context; all were "default bg color
+//   for custom-text visual cues" — not semantic, just a leftover default.
+// NOTE: This is the *foundation* of Tier 2. Tailwind class replacements
+// (blue-500 → theme-accent-bold, etc.) and the other files (clock.html,
+// dashboard.html, old.html, manifest.json) come in 5.70.0 and 5.71.0.
+// V5.68.0: Inline rename button for discoverability
+// - Added a pencil-icon button next to the schedule title in the main view.
+//   The admin-rename capability already existed (in the Admin Zone since v4.91),
+//   but was undiscoverable. The new inline button dispatches to the existing
+//   handlers: openRenameSharedScheduleModal() for admins (handles both shared
+//   and personal schedules), handleRenamePersonalSchedule() for authenticated
+//   non-admins with a personal schedule selected.
+// - The inline button mirrors the enabled state of the existing two rename
+//   buttons — no new permission logic, just a more findable entry point.
+// - Hidden in kiosk mode via the existing .kiosk-hide class.
+// V5.67.0: Audit pass — versioning cleanup + shared config + dead code removal
+// - REMOVED: CLOCK_VERSION and DASHBOARD_VERSION constants (stale cross-references).
+//   Each sibling file (clock.html, dashboard.html, dashboard-config.html) now
+//   tracks and displays its own version. index.html footer updated to match.
+// - REMOVED: Inline firebaseConfig declaration. Now read from window.firebaseConfig
+//   (defined in shared firebase-config.js). Consumers: index.html loads it before
+//   script.js; clock/dashboard/dashboard-config load it before their init logic.
+// - REMOVED: Dead functions — checkQueueUntilBell (never called outside definition),
+//   findPeriodAnchorBell (same), plus already-commented-out flattenPeriodsToBells
+//   and handleRelativeTimeChange blocks.
+// V5.66.3: Time Format Fixes & Theme Improvements
+// - FIX: Schedules with HH:MM times (without seconds) now work correctly
+//   - Root cause: setHours() with undefined seconds created Invalid Date, breaking countdown
+//   - Fixed in: updateClock(), isSafeToCleanup(), getDateForBellTime()
+// - NEW: Auto-migration normalizes HH:MM -> HH:MM:SS on schedule load (admins fix shared, users fix personal)
+// - Fixed bell item hover in dark mode (white-on-white issue)
+// - Added --theme-bg-hover and --theme-border-light CSS variables
+// V5.66.2: Theme & Bell Editing Fixes
+// - Fixed dark mode: visual cue container now uses theme variable
+// - Fixed light mode contrast: darker secondary text colors for readability
+// - Fixed shared bell sound editing:
+//   - ALL users can now change sound (creates personal override, only affects their room)
+//   - Sound dropdown enabled by default for everyone
+//   - Admins see "Override for all users" checkbox to optionally push to shared bell
+//   - Non-admins don't see checkbox (their changes are always personal)
+// - Added CSS variables for visual background, button colors
+// V5.66.1: Broadcast Toggle Fix
+// - Added onclick fallback to broadcast toggle button
+// - Added pointer-events-none to SVG to prevent click interception
+// V5.66.0: Theme & Display Settings
+// - Added Theme & Display panel in Visual Manager section
+// - Light/Dark theme presets with one-click toggle
+// - Custom color pickers for: background, card, text, secondary text, accent, countdown
+// - Toggle to hide visual cue graphic
+// - Live preview panel showing how changes will look
+// - Theme persists to localStorage and syncs to cloud
+// - CSS variables applied to entire page for seamless theming
+// V5.65.3: Remove broadcast popup messages
+// - Removed "Broadcast sent" and "synced from another device" modals (too intrusive)
+// - Console logging remains for debugging if needed
+// V5.65.2: Broadcast Fix - Use correct user variable
+// - Fixed: Changed currentUser (undefined) to userId (correct variable)
+// - Added detailed console logging for debugging
+// - Added user-visible messages when broadcast sends/receives
+// - Increased stale broadcast threshold from 5s to 10s
+// V5.65.1: Broadcast Toggle Fix
+// - Fixed broadcast toggle button not responding to clicks (DOM timing issue)
+// - Removed disabled attribute from HTML, button now works for all users
+// V5.65.0: Quick Bell Broadcast Feature
+// - Added broadcast toggle button next to sound dropdown (syncs quick bells across all logged-in devices)
+// - Added "Always broadcast" checkbox to custom quick bells
+// - Broadcast-enabled custom bells show a signal icon in the corner
+// - Cancel syncs across devices when broadcast is enabled
+// - Uses Firestore real-time listener for instant sync
+// V5.64.3: PiP Kiosk Mode Fixes
+// - Fixed visual cue icon not loading in kiosk mode
+// - Fixed countdown centering issue when window is small (now stays left-aligned)
+// V5.64.0: Enhanced PiP Kiosk Mode + Text Wrapping Fix
+// - Enhanced PiP kiosk mode with responsive scaling (icon fills height, countdown scales with viewport)
+// - Kiosk mode now has dark background, properly hides quick bells and action buttons
+// - Fixed text wrapping issue in full pop-out where "are" would drop to second line
+// - Fixed warning settings modal scrolling on smaller screens
+// V5.63.3: Share code feature fixes
+// - Fixed: populateScheduleSelector() -> renderScheduleSelector() (function didn't exist)
+// - Fixed: Unfollow now switches to another schedule if viewing the unfollowed one
+// V5.63.2: Fixed custom quick bell visual and sound upload
+// - Visual upload: Set currentVisualSelectTarget when opening upload from custom bell manager
+// - Visual upload: Added custom bell manager dropdowns to updateVisualDropdowns()
+// - Visual upload: Upload completion now properly updates hidden inputs for custom bells
+// - Sound upload: Added handler for [UPLOAD] selection in custom bell sound dropdown
+// - Sound upload: Added custom bell sound selects to addNewAudioOption() and updateSoundDropdowns()
+// V5.63.1: Bug fixes
+// - Users can generate 6-character share codes for their personal schedules
+// - Colleagues can enter share codes to "follow" schedules (read-only access)
+// - Following schedules appear in schedule selector under "📥 Following" group
+// - Followers can duplicate shared schedules to their own account
+// - Share codes can be revoked by the owner
+// - Updated Firestore rules: personal schedules readable by all authenticated users
+// - Updated Storage rules: user sounds/visuals readable by all authenticated users
+// V5.62.0: Memory Management System
+// - Added automatic memory purge during safe windows (when no bells approaching)
+// - Audio players now auto-dispose after playback
+// - Tracks and cleans up Tone.Player instances to prevent accumulation
+// - Clears unused audio buffer cache periodically
+// - Added PRODUCTION_MODE flag to reduce console logging
+// - Safe memory window = 60s before next bell (no cleanup during critical times)
+// V5.61.2: Dashboard v1.2.2 - added Launch TV View button
+// - Added CLOCK_VERSION and DASHBOARD_VERSION constants (dynamically displayed in footer)
+// V5.61.0: Clock Display v1.1.7 + Dashboard link
+// V5.60.0: Clock Display page initial release
 // V5.59.1: Fixed Simplified View wiping schedule
 // - Removed renderCombinedList() call from toggleSimplifiedView()
 // - CSS handles all visibility changes, no re-render needed
@@ -253,6 +376,9 @@ const renameSharedNewNameInput = document.getElementById('rename-shared-new-name
 const renameSharedScheduleStatus = document.getElementById('rename-shared-schedule-status');
 const renameSharedCancelBtn = document.getElementById('rename-shared-cancel');
 const renameScheduleBtn = document.getElementById('rename-schedule-btn'); // The button in Admin Zone
+// v5.68.0: Inline pencil button next to schedule title. Mirrors the enabled state of
+// renameScheduleBtn (admin) or renamePersonalScheduleBtn (personal, non-admin).
+const inlineRenameScheduleBtn = document.getElementById('inline-rename-schedule-btn');
 
 // Personal Schedule Manager Buttons (These were missing!)
 const renamePersonalScheduleBtn = document.getElementById('rename-personal-schedule-btn');
@@ -636,6 +762,35 @@ const sharedAudioFilesList = document.getElementById('shared-audio-files-list');
 
 const signOutBtn = document.getElementById('signout-btn');
 
+// V5.63.0: Share Code Feature DOM Elements
+const shareScheduleModal = document.getElementById('share-schedule-modal');
+const shareScheduleName = document.getElementById('share-schedule-name');
+const shareCodeGenerate = document.getElementById('share-code-generate');
+const shareCodeDisplay = document.getElementById('share-code-display');
+const shareCodeValue = document.getElementById('share-code-value');
+const generateShareCodeBtn = document.getElementById('generate-share-code-btn');
+const copyShareCodeBtn = document.getElementById('copy-share-code-btn');
+const revokeShareCodeBtn = document.getElementById('revoke-share-code-btn');
+const shareScheduleStatus = document.getElementById('share-schedule-status');
+const shareScheduleCloseBtn = document.getElementById('share-schedule-close');
+const shareScheduleBtn = document.getElementById('share-schedule-btn');
+
+const enterShareCodeModal = document.getElementById('enter-share-code-modal');
+const enterShareCodeForm = document.getElementById('enter-share-code-form');
+const enterShareCodeInput = document.getElementById('enter-share-code-input');
+const shareCodePreview = document.getElementById('share-code-preview');
+const shareCodePreviewName = document.getElementById('share-code-preview-name');
+const shareCodePreviewOwner = document.getElementById('share-code-preview-owner');
+const enterShareCodeStatus = document.getElementById('enter-share-code-status');
+const enterShareCodeSubmit = document.getElementById('enter-share-code-submit');
+const enterShareCodeCancel = document.getElementById('enter-share-code-cancel');
+
+const manageFollowingModal = document.getElementById('manage-following-modal');
+const followingList = document.getElementById('following-list');
+const addShareCodeBtn = document.getElementById('add-share-code-btn');
+const manageFollowingCloseBtn = document.getElementById('manage-following-close');
+const manageFollowingBtn = document.getElementById('manage-following-btn');
+
 // DELETED: v3.24 - Removed hardcoded admin list
 // const ADMIN_EMAIL_LIST = [ ... ];
 
@@ -656,6 +811,11 @@ let schedulesCollectionRef; // For *all* shared schedules collection
 let sharedSchedulesListenerUnsubscribe = null; // v3.24 - For shared schedules
 let allSchedules = []; // Array of *all* shared schedules
 let allPersonalSchedules = []; // Array of *user's* personal schedules
+
+// V5.63.0: Share Code Feature State
+let followingSchedules = []; // Schedules the user is following
+let followingSchedulesData = {}; // Loaded schedule data for followed schedules
+let currentShareCodeLookup = null; // Temp storage for share code lookup result
 
 let activeBaseScheduleId = null; // MODIFIED: Renamed from activeScheduleId
 let activePersonalScheduleId = null; // NEW: ID of active personal schedule
@@ -714,6 +874,12 @@ let queueVisual = '[DEFAULT_Q]';
 let queueActive = false;
 let queueTimerEndTime = null; // When current queue timer expires
 
+// V5.65.0: Quick Bell Broadcast State
+let broadcastEnabled = false; // Whether to broadcast quick bells to other devices
+let broadcastListenerUnsubscribe = null; // Firestore listener for incoming broadcasts
+let instanceId = crypto.randomUUID(); // Unique ID for this browser tab to prevent self-triggering
+let lastProcessedBroadcastTimestamp = 0; // Prevent duplicate processing
+
 let mutedBellIds = new Set(); 
 let skippedBellOccurrences = new Set(); // V5.47.9: Temporarily skipped bells (format: "bellId:YYYY-MM-DD")
 let bellSoundOverrides = {}; // NEW: Store local sound overrides
@@ -742,6 +908,152 @@ let oscillatorAlertInterval = null; // NEW in 4.38: For pre-bell wake-up
 let isOscillatorAlert = false; // NEW in 4.38: Flag for pre-bell wake-up
 
 let periodCollapsePreference = {}; // NEW in 4.49: Store collapse state { periodName: bool }
+
+// ============================================
+// V5.61.0: MEMORY MANAGEMENT SYSTEM
+// Prevents memory leaks during long runtime
+// ============================================
+
+// Track active Tone.Player instances for cleanup
+let activeAudioPlayers = [];
+const MAX_CACHED_PLAYERS = 5; // Keep only recent players
+
+// Track last memory purge time
+let lastMemoryPurgeTime = 0;
+const MEMORY_PURGE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const SAFE_WINDOW_THRESHOLD = 60 * 1000; // 60 seconds from next bell
+
+// Production mode flag - reduces console logging
+const PRODUCTION_MODE = true; // Set to false for debugging
+
+// Memory-safe console wrapper
+const safeLog = {
+    log: (...args) => { if (!PRODUCTION_MODE) console.log(...args); },
+    warn: (...args) => { console.warn(...args); }, // Always show warnings
+    error: (...args) => { console.error(...args); }, // Always show errors
+    important: (...args) => { console.log('[BELL]', ...args); } // Important logs always show
+};
+
+/**
+ * Check if we're in a safe window for memory operations
+ * Safe = more than SAFE_WINDOW_THRESHOLD ms until next bell
+ */
+function isInSafeMemoryWindow() {
+    const now = new Date();
+    const currentTimeHHMMSS = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    
+    const allBells = [...localSchedule, ...personalBells];
+    const nextBell = allBells
+        .filter(b => b.time > currentTimeHHMMSS)
+        .sort((a, b) => a.time.localeCompare(b.time))[0];
+    
+    if (!nextBell) return true; // No more bells today = safe
+    
+    // V5.66.3: Handle both "HH:MM" and "HH:MM:SS" formats
+    const timeParts = nextBell.time.split(':').map(Number);
+    const h = timeParts[0] || 0;
+    const m = timeParts[1] || 0;
+    const secs = timeParts[2] || 0;
+    const nextBellDate = new Date();
+    nextBellDate.setHours(h, m, secs, 0);
+    
+    const msUntilBell = nextBellDate.getTime() - now.getTime();
+    return msUntilBell > SAFE_WINDOW_THRESHOLD;
+}
+
+/**
+ * Clean up old audio players to prevent memory buildup
+ */
+function cleanupAudioPlayers() {
+    if (activeAudioPlayers.length > MAX_CACHED_PLAYERS) {
+        const toRemove = activeAudioPlayers.splice(0, activeAudioPlayers.length - MAX_CACHED_PLAYERS);
+        toRemove.forEach(player => {
+            try {
+                if (player && typeof player.dispose === 'function') {
+                    player.stop();
+                    player.dispose();
+                }
+            } catch (e) {
+                // Ignore disposal errors
+            }
+        });
+        safeLog.log(`[Memory] Cleaned up ${toRemove.length} audio players`);
+    }
+}
+
+/**
+ * Purge non-essential cached data during safe windows
+ */
+function purgeMemoryIfSafe() {
+    const now = Date.now();
+    
+    // Don't purge too frequently
+    if (now - lastMemoryPurgeTime < MEMORY_PURGE_INTERVAL) return;
+    
+    // Don't purge if a bell is approaching
+    if (!isInSafeMemoryWindow()) {
+        safeLog.log('[Memory] Skipping purge - bell approaching');
+        return;
+    }
+    
+    safeLog.important('[Memory] Starting safe memory purge...');
+    lastMemoryPurgeTime = now;
+    
+    // 1. Clean up old audio players
+    cleanupAudioPlayers();
+    
+    // 2. Clear old audio buffer cache (keep only frequently used)
+    const essentialSounds = ['Bell', 'Chime', 'Beep', 'Alarm', 'ellisBell.mp3'];
+    const cacheKeys = Object.keys(synths);
+    let clearedCount = 0;
+    
+    cacheKeys.forEach(key => {
+        // Keep built-in synths and ellisBell
+        if (essentialSounds.includes(key)) return;
+        
+        // Keep buffers that are actively used in schedule
+        const soundInUse = [...localSchedule, ...personalBells].some(bell => 
+            bell.sound === key || bell.sound?.includes(key) || 
+            key.includes(bell.sound)
+        );
+        
+        if (!soundInUse && key.startsWith('buffer-')) {
+            delete synths[key];
+            clearedCount++;
+        }
+    });
+    
+    if (clearedCount > 0) {
+        safeLog.log(`[Memory] Cleared ${clearedCount} unused audio buffers`);
+    }
+    
+    // 3. Hint to browser for garbage collection (if available)
+    if (typeof window.gc === 'function') {
+        window.gc();
+    }
+    
+    safeLog.important('[Memory] Purge complete');
+}
+
+/**
+ * Track a new audio player for later cleanup
+ */
+function trackAudioPlayer(player) {
+    activeAudioPlayers.push(player);
+    // Immediate cleanup if we're way over limit
+    if (activeAudioPlayers.length > MAX_CACHED_PLAYERS * 2) {
+        cleanupAudioPlayers();
+    }
+}
+
+// Run memory check periodically (but only during safe windows)
+setInterval(() => {
+    purgeMemoryIfSafe();
+}, MEMORY_PURGE_INTERVAL);
+
+// ============================================
+// END V5.61.0: MEMORY MANAGEMENT SYSTEM
+// ============================================
 let currentVisualPeriodName = null; // NEW in 4.50: Tracks the period currently displayed by the visual cue.
 let currentVisualKey = null; // NEW: Tracks the actual visual being displayed (e.g., "after:bellId", "before:bellId", "period:name")
 
@@ -1434,6 +1746,25 @@ const generateBellId = () => { // MODIFIED in 4.18: Changed to const arrow funct
 };
 
 /**
+    * NEW in 5.66.3: Normalizes a time string to HH:MM:SS format.
+    * Handles "HH:MM" -> "HH:MM:00" conversion.
+    * @param {string} time - The time string (HH:MM or HH:MM:SS)
+    * @returns {string} Normalized time in HH:MM:SS format, or original if invalid
+    */
+const normalizeTimeString = (time) => {
+    if (!time || typeof time !== 'string') return time;
+    const parts = time.split(':');
+    if (parts.length === 2) {
+        // HH:MM format - add :00 for seconds
+        return `${parts[0]}:${parts[1]}:00`;
+    } else if (parts.length === 3) {
+        // Already HH:MM:SS - ensure proper padding
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:${parts[2].padStart(2, '0')}`;
+    }
+    return time; // Return as-is if format is unexpected
+};
+
+/**
     * NEW in 4.18: Calculates the absolute time (HH:MM:SS) based on an anchor and offset. (MOVED/REFACTORED)
     * @param {number} anchorSeconds - Anchor time in seconds from midnight.
     * @param {string} direction - 'before' or 'after'.
@@ -1665,7 +1996,14 @@ async function playBell(soundName) {
         if (synths[bufferCacheKey] instanceof AudioBuffer) {
             // console.log("Playing from AudioBuffer cache:", bufferCacheKey);
             const player = new Tone.Player(synths[bufferCacheKey]).toDestination();
+            trackAudioPlayer(player); // V5.61.0: Track for cleanup
             player.start(now);
+            // V5.61.0: Auto-dispose after playback
+            player.onstop = () => {
+                try { player.dispose(); } catch(e) {}
+                const idx = activeAudioPlayers.indexOf(player);
+                if (idx > -1) activeAudioPlayers.splice(idx, 1);
+            };
             return; // Played from cache
         }
 
@@ -1675,7 +2013,14 @@ async function playBell(soundName) {
             const buffer = await synths[bufferCacheKey];
             if (buffer) {
                 const player = new Tone.Player(buffer).toDestination();
+                trackAudioPlayer(player); // V5.61.0: Track for cleanup
                 player.start(now);
+                // V5.61.0: Auto-dispose after playback
+                player.onstop = () => {
+                    try { player.dispose(); } catch(e) {}
+                    const idx = activeAudioPlayers.indexOf(player);
+                    if (idx > -1) activeAudioPlayers.splice(idx, 1);
+                };
             } else {
                 // Promise resolved to null (it failed)
                 console.warn(`In-flight promise for ${bufferCacheKey} failed. Reverting to default.`);
@@ -1713,7 +2058,14 @@ async function playBell(soundName) {
         if (newBuffer) {
             synths[bufferCacheKey] = newBuffer; // Overwrite promise with resolved buffer
             const player = new Tone.Player(newBuffer).toDestination();
+            trackAudioPlayer(player); // V5.61.0: Track for cleanup
             player.start(now);
+            // V5.61.0: Auto-dispose after playback
+            player.onstop = () => {
+                try { player.dispose(); } catch(e) {}
+                const idx = activeAudioPlayers.indexOf(player);
+                if (idx > -1) activeAudioPlayers.splice(idx, 1);
+            };
         } else {
             // Fetching failed, play default as fallback
             console.warn("Falling back to default bell.");
@@ -1780,12 +2132,16 @@ function findBellAfter(currentBell, allBells) {
 
 /**
     * NEW in 4.35: Helper to get a Date object for a bell's time on a specific day.
-    * @param {string} timeString - The HH:MM:SS time of the bell.
+    * @param {string} timeString - The HH:MM:SS or HH:MM time of the bell.
     * @param {Date} referenceDate - The "current" date object (from updateClock).
     * @returns {Date} A Date object for the bell on the reference day.
     */
 function getDateForBellTime(timeString, referenceDate) {
-    const [h, m, s] = timeString.split(':').map(Number);
+    // V5.66.3: Handle both "HH:MM" and "HH:MM:SS" formats
+    const timeParts = timeString.split(':').map(Number);
+    const h = timeParts[0] || 0;
+    const m = timeParts[1] || 0;
+    const s = timeParts[2] || 0;
     const bellDate = new Date(referenceDate);
     bellDate.setHours(h, m, s, 0); // Set time, clear milliseconds
     return bellDate;
@@ -2181,6 +2537,342 @@ function applyPipKioskMode(pipDoc, enabled) {
 }
 
 // ============================================
+// V5.66.0: THEME & DISPLAY FUNCTIONALITY
+// ============================================
+
+// Theme state
+let currentTheme = 'light'; // 'light', 'dark', or 'custom'
+let customThemeColors = {
+    bgPrimary: '#f3f4f6',
+    bgCard: '#ffffff',
+    bgHover: '#f9fafb',
+    bgVisual: '#1f2937',
+    textPrimary: '#111827',
+    textSecondary: '#4b5563',
+    textMuted: '#6b7280',
+    accent: '#2563eb',
+    countdown: '#111827',
+    border: '#d1d5db',
+    borderLight: '#e5e7eb',
+    buttonBg: '#e5e7eb',
+    buttonText: '#374151'
+};
+let visualCueEnabled = true;
+
+// Light theme defaults — v5.69.1: Carolina Blue palette
+// School colors: Carolina Blue, black, grey, white.
+// Accent is AA-compliant Carolina ("Carolina Deep", #38759E) for text-level UI.
+// Bold accent is canonical Carolina (#4B9CD3) for buttons/headers/backgrounds.
+const lightThemeColors = {
+    bgPrimary: '#f3f4f6',
+    bgCard: '#ffffff',
+    bgHover: '#f9fafb',
+    bgVisual: '#1f2937',
+    textPrimary: '#111827',
+    textSecondary: '#4b5563',
+    textMuted: '#6b7280',
+    accent: '#38759E',       // Carolina Deep — passes WCAG AA on white (4.99)
+    accentBold: '#4B9CD3',   // Canonical Carolina Blue — for large surfaces
+    countdown: '#111827',
+    border: '#d1d5db',
+    borderLight: '#e5e7eb',
+    buttonBg: '#e5e7eb',
+    buttonText: '#374151'
+};
+
+// Dark theme defaults — v5.69.1: Carolina Blue palette (lighter for dark bg contrast)
+const darkThemeColors = {
+    bgPrimary: '#111827',
+    bgCard: '#1f2937',
+    bgHover: '#374151',
+    bgVisual: '#374151',
+    textPrimary: '#f9fafb',
+    textSecondary: '#d1d5db',
+    textMuted: '#9ca3af',
+    accent: '#8FC3E8',       // Carolina Sky — 9.41 on dark-bg, 11.14 on black (excellent)
+    accentBold: '#4B9CD3',   // Canonical Carolina still works on dark (5.91 on dark-bg)
+    countdown: '#f9fafb',
+    border: '#374151',
+    borderLight: '#4b5563',
+    buttonBg: '#374151',
+    buttonText: '#e5e7eb'
+};
+
+/**
+ * Load theme preference from localStorage
+ */
+function loadThemePreference() {
+    try {
+        const storedTheme = localStorage.getItem('theme');
+        const storedVisualCue = localStorage.getItem('visualCueEnabled');
+        const storedCustomColors = localStorage.getItem('customThemeColors');
+        
+        if (storedTheme) {
+            currentTheme = storedTheme;
+        }
+        
+        if (storedVisualCue !== null) {
+            visualCueEnabled = storedVisualCue === 'true';
+        }
+        
+        if (storedCustomColors) {
+            customThemeColors = JSON.parse(storedCustomColors);
+        }
+        
+        applyTheme();
+        updateThemeUI();
+    } catch (e) {
+        console.error('Error loading theme preference:', e);
+    }
+}
+
+/**
+ * Save theme preference to localStorage
+ */
+function saveThemePreference() {
+    try {
+        localStorage.setItem('theme', currentTheme);
+        localStorage.setItem('visualCueEnabled', visualCueEnabled ? 'true' : 'false');
+        localStorage.setItem('customThemeColors', JSON.stringify(customThemeColors));
+        // Also save to cloud
+        saveUserPreferencesToCloud();
+    } catch (e) {
+        console.error('Error saving theme preference:', e);
+    }
+}
+
+/**
+ * Apply the current theme to the document
+ */
+function applyTheme() {
+    const root = document.documentElement;
+    
+    // Set data-theme attribute for CSS
+    if (currentTheme === 'dark') {
+        root.setAttribute('data-theme', 'dark');
+    } else {
+        root.removeAttribute('data-theme');
+    }
+    
+    // Apply custom colors (these override both light and dark)
+    const colors = currentTheme === 'dark' ? darkThemeColors : lightThemeColors;
+    const finalColors = { ...colors, ...customThemeColors };
+    
+    // Only apply custom colors if we have customizations different from the base theme
+    if (currentTheme !== 'custom') {
+        // Use theme defaults
+        root.style.setProperty('--theme-bg-primary', colors.bgPrimary);
+        root.style.setProperty('--theme-bg-card', colors.bgCard);
+        root.style.setProperty('--theme-bg-hover', colors.bgHover);
+        root.style.setProperty('--theme-bg-visual', colors.bgVisual);
+        root.style.setProperty('--theme-text-primary', colors.textPrimary);
+        root.style.setProperty('--theme-text-secondary', colors.textSecondary);
+        root.style.setProperty('--theme-text-muted', colors.textMuted);
+        root.style.setProperty('--theme-accent', colors.accent);
+        root.style.setProperty('--theme-accent-bold', colors.accentBold); // v5.69.1: Carolina Blue for large surfaces
+        root.style.setProperty('--theme-countdown', colors.countdown);
+        root.style.setProperty('--theme-border', colors.border);
+        root.style.setProperty('--theme-border-light', colors.borderLight);
+        root.style.setProperty('--theme-button-bg', colors.buttonBg);
+        root.style.setProperty('--theme-button-text', colors.buttonText);
+    } else {
+        // Apply custom colors
+        root.style.setProperty('--theme-bg-primary', customThemeColors.bgPrimary);
+        root.style.setProperty('--theme-bg-card', customThemeColors.bgCard);
+        root.style.setProperty('--theme-bg-hover', customThemeColors.bgHover || '#f9fafb');
+        root.style.setProperty('--theme-bg-visual', customThemeColors.bgVisual || '#1f2937');
+        root.style.setProperty('--theme-text-primary', customThemeColors.textPrimary);
+        root.style.setProperty('--theme-text-secondary', customThemeColors.textSecondary);
+        root.style.setProperty('--theme-text-muted', customThemeColors.textMuted || customThemeColors.textSecondary);
+        root.style.setProperty('--theme-accent', customThemeColors.accent);
+        // v5.69.1: If user hasn't set a custom accent-bold, fall back to canonical Carolina
+        root.style.setProperty('--theme-accent-bold', customThemeColors.accentBold || '#4B9CD3');
+        root.style.setProperty('--theme-countdown', customThemeColors.countdown);
+        root.style.setProperty('--theme-border', customThemeColors.border || '#d1d5db');
+        root.style.setProperty('--theme-border-light', customThemeColors.borderLight || '#e5e7eb');
+        root.style.setProperty('--theme-button-bg', customThemeColors.buttonBg || '#e5e7eb');
+        root.style.setProperty('--theme-button-text', customThemeColors.buttonText || '#374151');
+    }
+    
+    // Apply visual cue visibility
+    if (visualCueEnabled) {
+        document.body.classList.remove('hide-visual-cue');
+    } else {
+        document.body.classList.add('hide-visual-cue');
+    }
+    
+    // Update preview panel
+    updateThemePreview();
+}
+
+/**
+ * Update the preview panel with current colors
+ */
+function updateThemePreview() {
+    const preview = document.getElementById('theme-preview-panel');
+    const previewVisual = document.getElementById('preview-visual-cue');
+    
+    if (preview) {
+        // The preview uses CSS variables, so it updates automatically
+        // Just toggle visual cue visibility in preview
+        if (previewVisual) {
+            previewVisual.style.display = visualCueEnabled ? 'flex' : 'none';
+        }
+    }
+}
+
+/**
+ * Update the theme UI controls to reflect current state
+ */
+function updateThemeUI() {
+    const lightBtn = document.getElementById('theme-light-btn');
+    const darkBtn = document.getElementById('theme-dark-btn');
+    const visualCueToggle = document.getElementById('toggle-visual-cue');
+    
+    // Update theme buttons
+    if (lightBtn && darkBtn) {
+        if (currentTheme === 'dark') {
+            lightBtn.classList.remove('border-blue-500');
+            lightBtn.classList.add('border-transparent');
+            darkBtn.classList.add('border-blue-500');
+            darkBtn.classList.remove('border-transparent');
+        } else {
+            lightBtn.classList.add('border-blue-500');
+            lightBtn.classList.remove('border-transparent');
+            darkBtn.classList.remove('border-blue-500');
+            darkBtn.classList.add('border-transparent');
+        }
+    }
+    
+    // Update visual cue toggle
+    if (visualCueToggle) {
+        visualCueToggle.checked = visualCueEnabled;
+    }
+    
+    // Update color pickers
+    const colors = currentTheme === 'dark' ? darkThemeColors : 
+                   currentTheme === 'custom' ? customThemeColors : lightThemeColors;
+    
+    const bgInput = document.getElementById('theme-color-bg');
+    const cardInput = document.getElementById('theme-color-card');
+    const textInput = document.getElementById('theme-color-text');
+    const textSecInput = document.getElementById('theme-color-text-secondary');
+    const accentInput = document.getElementById('theme-color-accent');
+    const countdownInput = document.getElementById('theme-color-countdown');
+    
+    if (bgInput) bgInput.value = colors.bgPrimary;
+    if (cardInput) cardInput.value = colors.bgCard;
+    if (textInput) textInput.value = colors.textPrimary;
+    if (textSecInput) textSecInput.value = colors.textSecondary;
+    if (accentInput) accentInput.value = colors.accent;
+    if (countdownInput) countdownInput.value = colors.countdown;
+}
+
+/**
+ * Set theme to light mode
+ */
+function setLightTheme() {
+    currentTheme = 'light';
+    customThemeColors = { ...lightThemeColors };
+    applyTheme();
+    updateThemeUI();
+    saveThemePreference();
+}
+
+/**
+ * Set theme to dark mode
+ */
+function setDarkTheme() {
+    currentTheme = 'dark';
+    customThemeColors = { ...darkThemeColors };
+    applyTheme();
+    updateThemeUI();
+    saveThemePreference();
+}
+
+/**
+ * Apply a custom color change
+ */
+function applyCustomColor(property, value) {
+    customThemeColors[property] = value;
+    currentTheme = 'custom';
+    applyTheme();
+    saveThemePreference();
+}
+
+/**
+ * Reset custom colors to current theme defaults
+ */
+function resetCustomColors() {
+    const baseColors = currentTheme === 'dark' ? darkThemeColors : lightThemeColors;
+    customThemeColors = { ...baseColors };
+    currentTheme = currentTheme === 'dark' ? 'dark' : 'light';
+    applyTheme();
+    updateThemeUI();
+    saveThemePreference();
+}
+
+/**
+ * Toggle visual cue visibility
+ */
+function toggleVisualCue(enabled) {
+    visualCueEnabled = enabled;
+    applyTheme();
+    saveThemePreference();
+}
+
+/**
+ * Initialize theme event listeners
+ */
+function initThemeListeners() {
+    // Theme buttons
+    document.getElementById('theme-light-btn')?.addEventListener('click', setLightTheme);
+    document.getElementById('theme-dark-btn')?.addEventListener('click', setDarkTheme);
+    
+    // Custom colors toggle
+    document.getElementById('toggle-custom-colors-btn')?.addEventListener('click', () => {
+        const panel = document.getElementById('custom-colors-panel');
+        const chevron = document.getElementById('custom-colors-chevron');
+        if (panel && chevron) {
+            panel.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-90');
+        }
+    });
+    
+    // Color pickers
+    document.getElementById('theme-color-bg')?.addEventListener('input', (e) => {
+        applyCustomColor('bgPrimary', e.target.value);
+    });
+    document.getElementById('theme-color-card')?.addEventListener('input', (e) => {
+        applyCustomColor('bgCard', e.target.value);
+    });
+    document.getElementById('theme-color-text')?.addEventListener('input', (e) => {
+        applyCustomColor('textPrimary', e.target.value);
+    });
+    document.getElementById('theme-color-text-secondary')?.addEventListener('input', (e) => {
+        applyCustomColor('textSecondary', e.target.value);
+    });
+    document.getElementById('theme-color-accent')?.addEventListener('input', (e) => {
+        applyCustomColor('accent', e.target.value);
+    });
+    document.getElementById('theme-color-countdown')?.addEventListener('input', (e) => {
+        applyCustomColor('countdown', e.target.value);
+    });
+    
+    // Reset button
+    document.getElementById('reset-custom-colors-btn')?.addEventListener('click', resetCustomColors);
+    
+    // Visual cue toggle
+    document.getElementById('toggle-visual-cue')?.addEventListener('change', (e) => {
+        toggleVisualCue(e.target.checked);
+    });
+}
+
+// ============================================
+// END V5.66.0: THEME & DISPLAY FUNCTIONALITY
+// ============================================
+
+// ============================================
 // V5.47.0: PICTURE-IN-PICTURE FUNCTIONALITY
 // ============================================
 
@@ -2284,6 +2976,80 @@ async function togglePictureInPicture() {
             body.pip-kiosk-mode #pip-next-bell {
                 display: none !important;
             }
+            /* V5.64.0: Prevent text wrapping on clock line */
+            #pip-clock {
+                white-space: nowrap;
+            }
+            
+            /* V5.64.0: Enhanced kiosk mode - responsive scaling */
+            body.pip-kiosk-mode {
+                background: #1f2937 !important;
+                padding: 8px !important;
+            }
+            body.pip-kiosk-mode .pip-layout {
+                display: flex !important;
+                grid-template-columns: none !important;
+                gap: 12px !important;
+                height: calc(100vh - 16px) !important;
+                align-items: center !important;
+            }
+            body.pip-kiosk-mode #pip-visual {
+                width: auto !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                max-height: 100% !important;
+                aspect-ratio: 1 !important;
+                flex-shrink: 0 !important;
+                border-radius: 8px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            body.pip-kiosk-mode #pip-visual img {
+                width: 85% !important;
+                height: 85% !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+                object-fit: contain !important;
+            }
+            body.pip-kiosk-mode #pip-visual svg {
+                width: 85% !important;
+                height: 85% !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+            }
+            body.pip-kiosk-mode .p-2 {
+                padding: 0 !important;
+                flex: 1 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: flex-start !important;
+                min-width: 0 !important;
+                height: 100% !important;
+            }
+            body.pip-kiosk-mode #pip-countdown {
+                font-size: 50vh !important;
+                line-height: 0.85 !important;
+                color: white !important;
+                white-space: nowrap !important;
+                text-align: left !important;
+            }
+            body.pip-kiosk-mode #pip-bell-name {
+                font-size: 14vh !important;
+                line-height: 1.2 !important;
+                color: #9ca3af !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                text-align: left !important;
+            }
+            body.pip-kiosk-mode #pip-quick-bells {
+                display: none !important;
+            }
+            body.pip-kiosk-mode .pip-action-buttons {
+                display: none !important;
+            }
         `;
         pipDoc.head.appendChild(pipStyle);
         
@@ -2373,6 +3139,13 @@ async function togglePictureInPicture() {
         // V5.55.8: Remove Q button - queue modal can't work in PiP
         const oldQueueBtn = quickBellsClone.querySelector('#quick-bell-queue-btn');
         if (oldQueueBtn) oldQueueBtn.remove();
+        // V5.69.4: Remove broadcast toggle - cloned button's onclick references
+        // toggleBroadcastMode which doesn't exist in the PiP window's scope, so the
+        // cloned button is dead. Also creates duplicate-ID issues with the main-page
+        // toggle. Broadcast sync still works fine via the main-page toggle; the PiP
+        // is meant for at-a-glance bell display, not configuration.
+        const oldBroadcastToggle = quickBellsClone.querySelector('#quick-bell-broadcast-toggle');
+        if (oldBroadcastToggle) oldBroadcastToggle.remove();
         container.appendChild(quickBellsClone);
         
         pipDoc.body.appendChild(container);
@@ -2576,6 +3349,7 @@ function updatePipActionButtons(pipDoc) {
         }
     }
 }
+
 // ============================================
 // END V5.47.0: PICTURE-IN-PICTURE FUNCTIONALITY
 // ============================================
@@ -2601,7 +3375,11 @@ function updateClock() {
     
     let millisToScheduleBell = Infinity;
     if (scheduleBellObject) {
-        const [h, m, s] = scheduleBellObject.time.split(':').map(Number);
+        // V5.66.3: Handle both "HH:MM" and "HH:MM:SS" formats
+        const timeParts = scheduleBellObject.time.split(':').map(Number);
+        const h = timeParts[0] || 0;
+        const m = timeParts[1] || 0;
+        const s = timeParts[2] || 0; // Default seconds to 0 if not provided
         const nextBellDate = new Date();
         nextBellDate.setHours(h, m, s, 0);
         millisToScheduleBell = nextBellDate.getTime() - nowTimestamp;
@@ -2990,7 +3768,7 @@ function updateClock() {
         
         // Only update the DOM if the visual has actually changed
         if (newVisualKey !== currentVisualKey) {
-            console.log(`Visual: ${visualSource}`);
+            safeLog.log(`Visual: ${visualSource}`); // V5.61.0: Use safe logging
             visualCueContainer.innerHTML = visualHtml;
             currentVisualKey = newVisualKey;
         }
@@ -3007,7 +3785,7 @@ function updateClock() {
 }
 
 // --- NEW: Quick Bell Function (MODIFIED V5.00) ---
-function startQuickBell(hours = 0, minutes = 0, seconds = 0, sound, name = "Quick Bell") {
+function startQuickBell(hours = 0, minutes = 0, seconds = 0, sound, name = "Quick Bell", shouldBroadcast = false) {
     const now = new Date();
     // V5.44.8: Include hours in calculation
     const totalMillis = (hours * 3600000) + (minutes * 60000) + (seconds * 1000);
@@ -3019,10 +3797,175 @@ function startQuickBell(hours = 0, minutes = 0, seconds = 0, sound, name = "Quic
     
     // NEW V5.00: Store quick bell name for countdown display
     quickBellEndTime.bellName = name; 
+    
+    // V5.65.0: Store whether this bell was broadcast (for cancel sync)
+    quickBellEndTime.wasBroadcast = shouldBroadcast || broadcastEnabled;
 
     console.log(`Quick bell set for ${hours}h ${minutes}m ${seconds}s from now. Sound: ${quickBellSound}`);
+    
+    // V5.65.0: Broadcast to other devices if enabled
+    if ((shouldBroadcast || broadcastEnabled) && userId && !isUserAnonymous) {
+        broadcastQuickBell('start', hours, minutes, seconds, quickBellSound, name, totalMillis);
+    }
+    
     updateClock(); // Update display immediately
 }
+
+// ============================================================
+// V5.65.0: Quick Bell Broadcast Functions
+// Sync quick bells across all logged-in devices for the same user
+// ============================================================
+
+/**
+ * Send a quick bell broadcast to Firestore
+ */
+async function broadcastQuickBell(action, hours, minutes, seconds, sound, name, durationMs) {
+    if (!userId || isUserAnonymous) {
+        console.log('[Broadcast] Cannot send - no user or anonymous');
+        return;
+    }
+    
+    const broadcastPath = `artifacts/${appId}/users/${userId}/quick_bell_broadcast/current`;
+    console.log('[Broadcast] Sending to path:', broadcastPath);
+    
+    try {
+        const broadcastRef = doc(db, 'artifacts', appId, 'users', userId, 'quick_bell_broadcast', 'current');
+        const broadcastData = {
+            action: action, // 'start' or 'cancel'
+            hours: hours || 0,
+            minutes: minutes || 0,
+            seconds: seconds || 0,
+            sound: sound || 'ellisBell.mp3',
+            name: name || 'Quick Bell',
+            durationMs: durationMs || 0,
+            timestamp: Date.now(),
+            originInstance: instanceId
+        };
+        console.log('[Broadcast] Data:', broadcastData);
+        
+        await setDoc(broadcastRef, broadcastData);
+        console.log(`[Broadcast] Successfully sent ${action} broadcast for "${name}"`);
+    } catch (error) {
+        console.error('[Broadcast] Error sending broadcast:', error);
+    }
+}
+
+/**
+ * Set up listener for incoming quick bell broadcasts
+ * NOTE: This listener should be active regardless of whether broadcastEnabled is true
+ * The toggle only affects SENDING, not RECEIVING
+ */
+function setupBroadcastListener() {
+    if (!userId || isUserAnonymous) {
+        console.log('[Broadcast] Cannot set up listener - no user or anonymous');
+        return;
+    }
+    
+    // Clean up existing listener
+    if (broadcastListenerUnsubscribe) {
+        broadcastListenerUnsubscribe();
+        broadcastListenerUnsubscribe = null;
+    }
+    
+    const broadcastRef = doc(db, 'artifacts', appId, 'users', userId, 'quick_bell_broadcast', 'current');
+    console.log('[Broadcast] Setting up listener at path:', `artifacts/${appId}/users/${userId}/quick_bell_broadcast/current`);
+    
+    broadcastListenerUnsubscribe = onSnapshot(broadcastRef, (docSnap) => {
+        console.log('[Broadcast] Received snapshot, exists:', docSnap.exists());
+        if (!docSnap.exists()) return;
+        
+        const data = docSnap.data();
+        console.log('[Broadcast] Snapshot data:', data);
+        
+        // Ignore broadcasts from this instance
+        if (data.originInstance === instanceId) {
+            console.log('[Broadcast] Ignoring own broadcast (origin:', data.originInstance, ', this:', instanceId, ')');
+            return;
+        }
+        
+        // Ignore old broadcasts (more than 10 seconds old - increased from 5)
+        const age = Date.now() - data.timestamp;
+        if (age > 10000) {
+            console.log(`[Broadcast] Ignoring stale broadcast (${age}ms old)`);
+            return;
+        }
+        
+        // Prevent duplicate processing
+        if (data.timestamp <= lastProcessedBroadcastTimestamp) {
+            console.log('[Broadcast] Ignoring already-processed broadcast');
+            return;
+        }
+        lastProcessedBroadcastTimestamp = data.timestamp;
+        
+        console.log(`[Broadcast] Processing ${data.action} broadcast for "${data.name}"`);
+        
+        if (data.action === 'start') {
+            // Start the quick bell locally (without re-broadcasting)
+            const now = new Date();
+            quickBellEndTime = new Date(now.getTime() + data.durationMs);
+            quickBellEndTime.bellName = data.name;
+            quickBellEndTime.wasBroadcast = true; // Mark as broadcast-received
+            quickBellSound = data.sound;
+            document.getElementById('cancel-quick-bell-btn').classList.remove('hidden');
+            updateClock();
+        } else if (data.action === 'cancel') {
+            // Cancel the quick bell locally
+            quickBellEndTime = null;
+            document.getElementById('cancel-quick-bell-btn').classList.add('hidden');
+            updateClock();
+        }
+    }, (error) => {
+        console.error('[Broadcast] Listener error:', error);
+    });
+    
+    console.log('[Broadcast] Listener set up successfully for user:', userId);
+}
+
+/**
+ * Clean up broadcast listener
+ */
+function cleanupBroadcastListener() {
+    if (broadcastListenerUnsubscribe) {
+        broadcastListenerUnsubscribe();
+        broadcastListenerUnsubscribe = null;
+    }
+}
+
+/**
+ * Toggle broadcast mode on/off
+ */
+function toggleBroadcastMode() {
+    broadcastEnabled = !broadcastEnabled;
+    updateBroadcastToggleUI();
+    
+    if (broadcastEnabled) {
+        showUserMessage('📡 Broadcast ON - Quick bells will sync to all your devices');
+    } else {
+        showUserMessage('📡 Broadcast OFF - Quick bells only on this device');
+    }
+}
+
+/**
+ * Update the broadcast toggle button UI
+ */
+function updateBroadcastToggleUI() {
+    const btn = document.getElementById('quick-bell-broadcast-toggle');
+    if (!btn) return;
+    
+    if (broadcastEnabled) {
+        btn.classList.remove('bg-gray-200', 'text-gray-500');
+        btn.classList.add('bg-sky-500', 'text-white');
+        btn.title = 'Broadcast to all devices (ON)';
+    } else {
+        btn.classList.remove('bg-sky-500', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-500');
+        btn.title = 'Broadcast to all devices (off)';
+    }
+}
+
+// ============================================================
+// END V5.65.0: Quick Bell Broadcast Functions
+// ============================================================
 
 // ============================================================
 // NEW V5.55.0: Quick Bell Queue Functions
@@ -3368,16 +4311,6 @@ function cancelQueue() {
     updateClock();
 }
 
-function checkQueueUntilBell(bellId) {
-    // Called when a bell rings - check if it matches our "until" bell
-    if (queueActive && queueRepeatMode === 'until' && queueUntilBellId === bellId) {
-        console.log('Queue "until" bell reached, stopping queue');
-        cancelQueue();
-        return true;
-    }
-    return false;
-}
-
 function getQueueVisualHtml() {
     if (queueVisual === '[DEFAULT_Q]') {
         // Default Q visual - a simple styled Q
@@ -3453,9 +4386,9 @@ function renderCustomQuickBells() {
         const minutes = bell ? bell.minutes : 5;
         const seconds = bell ? bell.seconds : 0;
         // V5.03: Read/default the full visual cue (which includes custom text/colors or URL)
-        const rawVisualCue = bell ? (bell.visualCue || '[CUSTOM_TEXT] ?|#4338CA|#FFFFFF') : '[CUSTOM_TEXT] ?|#4338CA|#FFFFFF'; 
+        const rawVisualCue = bell ? (bell.visualCue || '[CUSTOM_TEXT] ?|#4B9CD3|#FFFFFF') : '[CUSTOM_TEXT] ?|#4B9CD3|#FFFFFF'; 
         const rawIconText = bell ? bell.iconText : String(id); // Legacy/Custom Text value
-        let iconColor = bell ? (bell.iconBgColor || '#4338CA') : '#4338CA';
+        let iconColor = bell ? (bell.iconBgColor || '#4B9CD3') : '#4B9CD3';
         let textColor = bell ? (bell.iconFgColor || '#FFFFFF') : '#FFFFFF';
         const sound = bell ? bell.sound : 'ellisBell.mp3';
         
@@ -3555,6 +4488,19 @@ function renderCustomQuickBells() {
                     <button type="button" data-bell-id="${id}" data-sound="${sound}" 
                             class="preview-audio-btn custom-bell-editable-input w-8 h-8 flex-shrink-0 flex items-center justify-center text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors ${disabledClass}" 
                             aria-label="Preview" ${disabledAttr}>&#9654;</button>
+                </div>
+                
+                <!-- V5.65.0: ROW 2.5: Broadcast Toggle -->
+                <div class="flex items-center gap-2 ${disabledClass}">
+                    <input type="checkbox" data-bell-id="${id}" data-field="alwaysBroadcast" name="alwaysBroadcast-${id}"
+                            class="custom-bell-broadcast-toggle custom-bell-editable-input h-4 w-4 text-sky-600 rounded focus:ring-sky-500"
+                            ${bell && bell.alwaysBroadcast ? 'checked' : ''} ${disabledAttr}>
+                    <label class="text-sm text-gray-600 flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z"></path>
+                        </svg>
+                        Always broadcast to all devices
+                    </label>
                 </div>
                 
                 <!-- ROW 3: Visual Cue Dropdown (full width) -->
@@ -3662,6 +4608,15 @@ function renderCustomQuickBells() {
             }
 
             // V5.44.8: Add hours data attribute
+            // V5.65.0: Add broadcast data attribute and indicator
+            const broadcastIndicator = bell.alwaysBroadcast ? `
+                <span class="absolute top-0 right-0 w-3 h-3 text-white" title="Broadcasts to all devices">
+                    <svg class="w-full h-full drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z"></path>
+                    </svg>
+                </span>
+            ` : '';
+            
             return `
             <button data-custom-id="${bell.id}"
                     data-hours="${hours}"
@@ -3669,9 +4624,11 @@ function renderCustomQuickBells() {
                     data-seconds="${seconds}"
                     data-sound="${bell.sound}"
                     data-name="${bell.name}"
+                    data-broadcast="${bell.alwaysBroadcast ? 'true' : 'false'}"
                     class="custom-quick-launch-btn font-bold py-2 px-4 rounded-lg text-sm transition-all duration-150 shadow-md hover:shadow-lg transform active:scale-95 h-11 w-11 relative overflow-hidden group flex items-center justify-center"
                     style="background-color: ${bell.iconBgColor}; color: ${bell.iconFgColor};">
                     ${visualContent}
+                    ${broadcastIndicator}
                     <span class="absolute inset-0 bg-black bg-opacity-75 text-white text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             ${formattedTime}
                     </span>
@@ -3754,6 +4711,8 @@ function syncCustomBellFormToArray() {
         const iconTextInput = row.querySelector(`input[data-field="iconText"][data-bell-id="${bellId}"]`);
         const iconBgColorInput = row.querySelector(`input[data-field="iconBgColor"][data-bell-id="${bellId}"]`);
         const iconFgColorInput = row.querySelector(`input[data-field="iconFgColor"][data-bell-id="${bellId}"]`);
+        // V5.65.0: Broadcast toggle
+        const broadcastToggle = row.querySelector(`input[data-field="alwaysBroadcast"][data-bell-id="${bellId}"]`);
         
         bell.isActive = toggle.checked;
         if (nameInput) bell.name = nameInput.value;
@@ -3765,6 +4724,8 @@ function syncCustomBellFormToArray() {
         if (iconTextInput) bell.iconText = iconTextInput.value;
         if (iconBgColorInput) bell.iconBgColor = iconBgColorInput.value;
         if (iconFgColorInput) bell.iconFgColor = iconFgColorInput.value;
+        // V5.65.0: Sync broadcast setting
+        if (broadcastToggle) bell.alwaysBroadcast = broadcastToggle.checked;
     });
 }
 
@@ -3953,10 +4914,12 @@ combinedBellListElement.innerHTML = renderablePeriods.map(period => {
                 <!-- Management Controls (Right Side) -->
                 <div class="flex-shrink-0 flex items-center space-x-2">
                     <!-- NEW: Add Bell to Period Button -->
+                    <!-- V5.45.2: Hidden instead of disabled for anonymous users -->
                     <button data-period-name="${safePeriodName}" 
                             class="add-bell-to-period-btn px-3 py-1 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
                             title="Add a new bell to the ${safePeriodName} period"
-                            ${!activePersonalScheduleId ? 'disabled' : ''}>
+                            ${isUserAnonymous ? 'style="display: none;"' : ''}
+                            ${!activePersonalScheduleId && !isAdmin ? 'disabled' : ''}>
                         + Bell
                     </button>
                     
@@ -3973,10 +4936,12 @@ combinedBellListElement.innerHTML = renderablePeriods.map(period => {
                     </button>
                     
                     <!-- NEW V4.60: Delete Custom Period Button in List View -->
+                    <!-- V5.45.1: Also show for admins on shared schedules -->
                     <button data-period-name="${safePeriodName}" 
+                            data-period-origin="${isOnlyPersonal ? 'custom' : 'shared'}"
                             class="delete-list-period-btn px-3 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
-                            title="Delete custom period ${safePeriodName}"
-                            style="${isOnlyPersonal && activePersonalScheduleId ? '' : 'display: none;'}">
+                            title="Delete ${isOnlyPersonal ? 'custom' : 'shared'} period ${safePeriodName}"
+                            style="${(isOnlyPersonal && activePersonalScheduleId) || (isAdmin && !isOnlyPersonal) ? '' : 'display: none;'}">
                         Delete Period
                     </button>
 
@@ -4193,9 +5158,10 @@ combinedBellListElement.innerHTML = renderablePeriods.map(period => {
 function renderScheduleSelector() {
     // MODIFIED: v3.03 - Renders with optgroups
     // MODIFIED: V5.44 - Added standalone schedules optgroup
+    // MODIFIED: V5.63 - Added following schedules optgroup
     const lastSelectedId = localStorage.getItem('activeScheduleId') || (allSchedules.length > 0 ? `shared-${allSchedules[0].id}` : '');
     
-    if (allSchedules.length === 0 && allPersonalSchedules.length === 0) {
+    if (allSchedules.length === 0 && allPersonalSchedules.length === 0 && followingSchedules.length === 0) {
             scheduleSelector.innerHTML = '<option value="">No schedules found. Create one!</option>';
             setActiveSchedule(""); 
             return;
@@ -4222,6 +5188,13 @@ function renderScheduleSelector() {
             ${schedule.name}
         </option>`
     ).join('');
+    
+    // V5.63.0: Following schedules
+    let followingOptions = followingSchedules.map(f => 
+        `<option value="following-${f.ownerId}-${f.scheduleId}" ${`following-${f.ownerId}-${f.scheduleId}` === lastSelectedId ? 'selected' : ''}>
+            ${f.scheduleName} (${f.ownerName || 'Unknown'})
+        </option>`
+    ).join('');
 
     scheduleSelector.innerHTML = `
         <optgroup label="My Personal Schedules" id="personal-schedules-optgroup">
@@ -4230,6 +5203,11 @@ function renderScheduleSelector() {
         <optgroup label="My Custom Standalone Schedules" id="standalone-schedules-optgroup">
             ${standaloneOptions || '<option value="" disabled>No standalone schedules created.</option>'}
         </optgroup>
+        ${followingSchedules.length > 0 ? `
+        <optgroup label="📥 Following" id="following-schedules-optgroup">
+            ${followingOptions}
+        </optgroup>
+        ` : ''}
         <optgroup label="Shared Schedules" id="shared-schedules-optgroup">
             ${sharedOptions}
         </optgroup>
@@ -4249,14 +5227,6 @@ function renderScheduleSelector() {
         setActiveSchedule(``); // No schedules at all
     }
 }
-
-// DELETED in 4.38: This function is no longer used.
-// The 'resolveAllBellTimes' engine now creates the flat bell list.
-/*
-function flattenPeriodsToBells(periodList) {
-    ...
-}
-*/
 
 /**
     * MODIFIED: v4.07 - Final robust logic for migrating old flat bell structure to the new period structure.
@@ -5311,17 +6281,13 @@ async function initFirebase() {
     if (auth) return; 
 
     try {
-        // MODIFIED: v4.26 - Reverted to hardcoded config from v4.23.
-        // The dynamic __firebase_config check (v4.24) is ONLY for the
-        // canvas environment and fails on external hosting (like GitHub Pages),
-        // which caused the "config is not defined" error.
-        const firebaseConfig = {
-            apiKey: "AIzaSyDfo45UBu-pR8nqMQhVlS_QgyYZ2kzBdvM",
-            authDomain: "ellisbell-c185c.firebaseapp.com", 
-            projectId: "ellisbell-c185c",
-            storageBucket: "ellisbell-c185c.firebasestorage.app",
-            appId: "1:441560045695:web:94e51a006663404b8f474a"
-        };
+        // V5.67.0: Read config from shared firebase-config.js (loaded before this
+        // module in index.html). Previously this block declared a local
+        // firebaseConfig const — now kept in one place across all surfaces.
+        if (!window.firebaseConfig) {
+            throw new Error("firebase-config.js must load before script.js. Check index.html <script> order.");
+        }
+        const firebaseConfig = window.firebaseConfig;
         
         // MODIFIED: v4.26 - Set global appId from hardcoded config
         appId = firebaseConfig.appId;
@@ -5457,23 +6423,41 @@ async function initFirebase() {
                     listenForPersonalSchedules(user.uid);
                     // NEW V5.00: Start Custom Quick Bell listener
                     listenForCustomQuickBells(user.uid);
+                    // V5.65.0: Set up broadcast listener for quick bell sync
+                    setupBroadcastListener();
                     // V5.53: Load cloud preferences and set up listener
                     await loadUserPreferencesFromCloud();
                     setupUserPreferencesListener();
+                    // V5.63.0: Load following schedules
+                    await loadFollowingSchedules();
+                    updateFollowingButton();
                     // NEW V5.00: Enable custom quick bell button
                     showCustomQuickBellManagerBtn.disabled = false;
                     showCustomQuickBellManagerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                     // V5.44: Enable standalone schedule button
                     createStandaloneScheduleBtn.disabled = false;
                     createStandaloneScheduleBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    // V5.65.0: Enable broadcast toggle
+                    const broadcastBtn = document.getElementById('quick-bell-broadcast-toggle');
+                    if (broadcastBtn) {
+                        broadcastBtn.disabled = false;
+                        broadcastBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
                 } else {
                     allPersonalSchedules = []; // Clear personal schedules
+                    followingSchedules = []; // V5.63.0: Clear following schedules
                     // NEW V5.00: Disable custom quick bell button
                     showCustomQuickBellManagerBtn.disabled = true;
                     showCustomQuickBellManagerBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     // V5.44: Disable standalone schedule button
                     createStandaloneScheduleBtn.disabled = true;
                     createStandaloneScheduleBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    // V5.65.0: Disable broadcast toggle for anonymous users
+                    const broadcastBtnAnon = document.getElementById('quick-bell-broadcast-toggle');
+                    if (broadcastBtnAnon) {
+                        broadcastBtnAnon.disabled = true;
+                        broadcastBtnAnon.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
                 }
                 schedulesCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedules');
                 // MODIFIED: v3.24 - Changed to real-time listener
@@ -5542,6 +6526,10 @@ async function initFirebase() {
                     customQuickBellsListenerUnsubscribe();
                     customQuickBellsListenerUnsubscribe = null;
                 }
+                // V5.65.0: Clean up broadcast listener
+                cleanupBroadcastListener();
+                broadcastEnabled = false;
+                updateBroadcastToggleUI();
                 // V5.53: Unsubscribe from user preferences
                 if (userPreferencesListenerUnsubscribe) {
                     userPreferencesListenerUnsubscribe();
@@ -5749,10 +6737,10 @@ function listenForCustomQuickBells(userId) {
                 seconds: b.seconds || 0,
                 // NEW V5.00: Read Icon Colors
                 iconText: b.iconText || String(index + 1),
-                iconBgColor: b.iconBgColor || '#4338CA',
+                iconBgColor: b.iconBgColor || '#4B9CD3',
                 iconFgColor: b.iconFgColor || '#FFFFFF',
                 // Added 5.25 to get visual uploads working
-                visualCue: b.visualCue || `[CUSTOM_TEXT] ${index + 1}|#4338CA|#FFFFFF`,
+                visualCue: b.visualCue || `[CUSTOM_TEXT] ${index + 1}|#4B9CD3|#FFFFFF`,
                     
                 sound: b.sound || 'ellisBell.mp3',
                 isActive: b.isActive !== false // 5.19.3 Default to TRUE (active/checked)
@@ -5854,12 +6842,18 @@ function setActiveSchedule(prefixedId) {
 
     // NEW V4.91: Disable admin rename button
     renameScheduleBtn.disabled = true;
+    updateInlineRenameScheduleBtn(); // v5.68.0: mirror state to inline pencil button
     
     // v3.03: Disable personal schedule buttons
     createPersonalScheduleBtn.disabled = true;
     createPersonalScheduleBtn.textContent = 'Copy as Personal Schedule';
     deletePersonalScheduleBtn.disabled = true;
     deletePersonalScheduleBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    // V5.63.0: Disable share button
+    if (shareScheduleBtn) {
+        shareScheduleBtn.disabled = true;
+        shareScheduleBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
     
     if (document.body.classList.contains('admin-mode')) {
         addSharedBellForm.querySelector('button[type="submit"]').disabled = true;
@@ -5903,6 +6897,7 @@ function setActiveSchedule(prefixedId) {
                 importCurrentScheduleBtn.disabled = false;
                 // NEW V4.91: Enable shared rename button
                 renameScheduleBtn.disabled = false;
+                updateInlineRenameScheduleBtn(); // v5.68.0: mirror to inline pencil
             }
         }
 
@@ -5930,6 +6925,7 @@ function setActiveSchedule(prefixedId) {
                 
                 // --- NEW V4.90: One-Time Bell ID Migration for BASE shared bells ---
                 // This must run for personal schedules too, so the base bells have IDs.
+                // V5.66.3: Also normalize time strings to HH:MM:SS format
                 let needsBaseMigration = false;
                 localSchedulePeriods.forEach(period => {
                     period.bells.forEach(bell => {
@@ -5938,14 +6934,23 @@ function setActiveSchedule(prefixedId) {
                             needsBaseMigration = true;
                             console.log(`Assigning new bellId to BASE bell: ${bell.name} in ${period.name}`);
                         }
+                        // V5.66.3: Normalize time strings (HH:MM -> HH:MM:SS)
+                        if (bell.time && !bell.relative) {
+                            const normalized = normalizeTimeString(bell.time);
+                            if (normalized !== bell.time) {
+                                console.log(`Normalizing time for BASE bell "${bell.name}": ${bell.time} -> ${normalized}`);
+                                bell.time = normalized;
+                                needsBaseMigration = true;
+                            }
+                        }
                     });
                 });
 
                 if (needsBaseMigration && document.body.classList.contains('admin-mode')) {
-                    console.log("Saving migrated bellId data back to BASE schedule...");
+                    console.log("Saving migrated data back to BASE schedule...");
                     updateDoc(scheduleRef, { periods: localSchedulePeriods }) 
-                        .then(() => console.log("Base schedule bellId migration successful."))
-                        .catch(err => console.error("Error saving base bellId migration:", err));
+                        .then(() => console.log("Base schedule migration successful."))
+                        .catch(err => console.error("Error saving base migration:", err));
                 }
                 // --- END V4.90 Migration ---
                 
@@ -5992,6 +6997,12 @@ function setActiveSchedule(prefixedId) {
         deletePersonalScheduleBtn.disabled = false;
         deletePersonalScheduleBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         
+        // V5.63.0: Enable share button for personal schedules
+        if (shareScheduleBtn) {
+            shareScheduleBtn.disabled = false;
+            shareScheduleBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        
         // v3.05: Enable "Duplicate" button and manager buttons
         createPersonalScheduleBtn.disabled = false;
         createPersonalScheduleBtn.textContent = 'Duplicate as Another Personal Schedule';
@@ -5999,6 +7010,15 @@ function setActiveSchedule(prefixedId) {
         backupPersonalScheduleBtn.disabled = false;
         restorePersonalScheduleBtn.disabled = false;
         showMultiAddRelativeModalBtn.disabled = false; // NEW in 4.42
+        
+        // V5.45.1: Enable admin rename button for personal schedules too
+        if (document.body.classList.contains('admin-mode')) {
+            renameScheduleBtn.disabled = false;
+        }
+        // v5.68.0: Personal schedule is selected — either the admin button or the
+        // user's own rename-personal button will be enabled; show the inline pencil.
+        renamePersonalScheduleBtn.disabled = false; // (already set just above; re-affirmed for clarity)
+        updateInlineRenameScheduleBtn();
         
         // NEW in 4.57: Enable new period button
         newPeriodBtn.disabled = false;
@@ -6024,13 +7044,22 @@ function setActiveSchedule(prefixedId) {
                     let periodsToUse = personalData.periods || [];
                     let needsMigration = false;
                     
-                    // Check for missing bellIds
+                    // Check for missing bellIds and normalize time strings
                     periodsToUse.forEach(period => {
                         period.bells.forEach(bell => {
                             if (!bell.bellId) {
                                 bell.bellId = generateBellId();
                                 needsMigration = true;
                                 console.log(`Assigning new bellId to ${bell.name} in ${period.name}`);
+                            }
+                            // V5.66.3: Normalize time strings (HH:MM -> HH:MM:SS)
+                            if (bell.time && !bell.relative) {
+                                const normalized = normalizeTimeString(bell.time);
+                                if (normalized !== bell.time) {
+                                    console.log(`Normalizing time for "${bell.name}": ${bell.time} -> ${normalized}`);
+                                    bell.time = normalized;
+                                    needsMigration = true;
+                                }
                             }
                         });
                     });
@@ -6095,6 +7124,7 @@ function setActiveSchedule(prefixedId) {
 
                     // --- NEW V4.90: One-Time Bell ID Migration for SHARED bells ---
                     // This fixes the bug where overrides wouldn't save on refresh.
+                    // V5.66.3: Also normalize time strings to HH:MM:SS format
                     let needsSharedMigration = false;
                     localSchedulePeriods.forEach(period => {
                         period.bells.forEach(bell => {
@@ -6103,17 +7133,26 @@ function setActiveSchedule(prefixedId) {
                                 needsSharedMigration = true;
                                 console.log(`Assigning new bellId to SHARED bell: ${bell.name} in ${period.name}`);
                             }
+                            // V5.66.3: Normalize time strings (HH:MM -> HH:MM:SS)
+                            if (bell.time && !bell.relative) {
+                                const normalized = normalizeTimeString(bell.time);
+                                if (normalized !== bell.time) {
+                                    console.log(`Normalizing time for SHARED bell "${bell.name}": ${bell.time} -> ${normalized}`);
+                                    bell.time = normalized;
+                                    needsSharedMigration = true;
+                                }
+                            }
                         });
                     });
 
                     if (needsSharedMigration && document.body.classList.contains('admin-mode')) {
-                        console.log("Saving migrated bellId data back to SHARED schedule...");
+                        console.log("Saving migrated data back to SHARED schedule...");
                         // Fire-and-forget update.
                         // We only save if user is an admin to prevent write errors.
                         // Non-admins will still have the IDs in-memory for this session.
                         updateDoc(scheduleRef, { periods: localSchedulePeriods }) 
-                            .then(() => console.log("Shared schedule bellId migration successful."))
-                            .catch(err => console.error("Error saving shared bellId migration:", err));
+                            .then(() => console.log("Shared schedule migration successful."))
+                            .catch(err => console.error("Error saving shared migration:", err));
                     }
                     // --- END V4.90 Migration ---
                     
@@ -6166,13 +7205,23 @@ function setActiveSchedule(prefixedId) {
                         console.log("Running migration from flat 'bells' to 'periods' structure.");
                     }
                     
-                    // Now check for missing bellIds within the periods
+                    // Now check for missing bellIds and normalize time strings within the periods
                     periodsToUse.forEach(period => {
                         period.bells.forEach(bell => {
                             if (!bell.bellId) {
                                 bell.bellId = generateBellId();
                                 needsMigration = true;
                                 console.log(`Assigning new permanent bellId to ${bell.name} in ${period.name}`);
+                            }
+                            // V5.66.3: Normalize time strings (HH:MM -> HH:MM:SS)
+                            // Only for static bells (not relative bells)
+                            if (bell.time && !bell.relative) {
+                                const normalized = normalizeTimeString(bell.time);
+                                if (normalized !== bell.time) {
+                                    console.log(`Normalizing time for personal bell "${bell.name}": ${bell.time} -> ${normalized}`);
+                                    bell.time = normalized;
+                                    needsMigration = true;
+                                }
                             }
                         });
                     });
@@ -6234,6 +7283,89 @@ function setActiveSchedule(prefixedId) {
                 recalculateAndRenderAll();
             });
         }
+    } else if (type === 'following') {
+        // V5.63.0: Handle following (shared by another user) schedules
+        // Format: following-ownerId-scheduleId
+        const parts = prefixedId.split('-');
+        const followOwnerId = parts[1];
+        const followScheduleId = parts.slice(2).join('-'); // In case schedule ID has dashes
+        
+        console.log("Setting active FOLLOWING schedule:", followScheduleId, "from user:", followOwnerId);
+        
+        // Find the following entry
+        const followEntry = followingSchedules.find(f => f.ownerId === followOwnerId && f.scheduleId === followScheduleId);
+        if (!followEntry) {
+            console.error("Could not find following schedule entry.");
+            return;
+        }
+        
+        // Set as viewing another user's schedule (read-only)
+        activeBaseScheduleId = null;
+        activePersonalScheduleId = null; // Not our schedule
+        
+        scheduleTitle.textContent = `${followEntry.scheduleName} (Following)`;
+        
+        // V5.63.0: Hide standalone badge for following schedules
+        if (standaloneScheduleBadge) {
+            standaloneScheduleBadge.classList.add('hidden');
+        }
+        
+        // Keep all edit buttons disabled (read-only view)
+        // But allow duplicate action
+        createPersonalScheduleBtn.disabled = true; // Will enable duplicate via different path
+        
+        // Load the schedule from the other user's account
+        const followScheduleRef = doc(db, 'artifacts', appId, 'users', followOwnerId, 'personal_schedules', followScheduleId);
+        
+        // Clear any existing listeners
+        if (activeScheduleListenerUnsubscribe) {
+            activeScheduleListenerUnsubscribe();
+            activeScheduleListenerUnsubscribe = null;
+        }
+        if (activePersonalScheduleListenerUnsubscribe) {
+            activePersonalScheduleListenerUnsubscribe();
+            activePersonalScheduleListenerUnsubscribe = null;
+        }
+        
+        activeScheduleListenerUnsubscribe = onSnapshot(followScheduleRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                const scheduleData = docSnap.data();
+                
+                // Check if this is a standalone or linked schedule
+                const isStandalone = !scheduleData.baseScheduleId || scheduleData.isStandalone;
+                
+                if (isStandalone) {
+                    // Standalone: use periods directly
+                    localSchedulePeriods = scheduleData.periods || [];
+                    personalBellsPeriods = [];
+                } else {
+                    // Linked: need to load the base schedule too
+                    const baseRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', scheduleData.baseScheduleId);
+                    const baseSnap = await getDoc(baseRef);
+                    if (baseSnap.exists()) {
+                        const baseData = baseSnap.data();
+                        localSchedulePeriods = baseData.periods || [];
+                    } else {
+                        localSchedulePeriods = [];
+                    }
+                    personalBellsPeriods = scheduleData.periods || [];
+                }
+                
+                // Load bell overrides for display
+                personalBellOverrides = scheduleData.bellOverrides || {};
+                personalPassingPeriodVisual = scheduleData.passingPeriodVisual || null;
+                
+                console.log("Loaded following schedule:", followEntry.scheduleName);
+                
+                recalculateAndRenderAll();
+            } else {
+                console.warn("Following schedule no longer exists.");
+                localSchedulePeriods = [];
+                personalBellsPeriods = [];
+                scheduleTitle.textContent = "Schedule Not Found";
+                recalculateAndRenderAll();
+            }
+        });
     }
 }
 
@@ -6262,15 +7394,33 @@ async function handleCreateSchedule(e) {
 }
 
 // --- NEW V4.91: Rename Shared Schedule Functions ---
+// V5.45.1: Now handles both shared and personal schedules for admins
 function openRenameSharedScheduleModal() {
-    if (!activeBaseScheduleId || !document.body.classList.contains('admin-mode')) return;
+    if (!document.body.classList.contains('admin-mode')) return;
     
-    const schedule = allSchedules.find(s => s.id === activeBaseScheduleId);
-    if (!schedule) return;
+    // Check if we're viewing a personal schedule or shared schedule
+    const currentSelection = scheduleSelector.value;
+    const [type, scheduleId] = currentSelection.split('-');
+    
+    let schedule, currentName;
+    
+    if (type === 'personal' && activePersonalScheduleId) {
+        // Personal schedule
+        schedule = allPersonalSchedules.find(s => s.id === activePersonalScheduleId);
+        if (!schedule) return;
+        currentName = schedule.name;
+    } else if (type === 'shared' && activeBaseScheduleId) {
+        // Shared schedule
+        schedule = allSchedules.find(s => s.id === activeBaseScheduleId);
+        if (!schedule) return;
+        currentName = schedule.name;
+    } else {
+        return;
+    }
 
     // Populate modal with current name
-    renameSharedOldName.textContent = schedule.name;
-    renameSharedNewNameInput.value = schedule.name;
+    renameSharedOldName.textContent = currentName;
+    renameSharedNewNameInput.value = currentName;
     renameSharedScheduleStatus.classList.add('hidden'); // Clear status
     
     // Show the modal
@@ -6279,10 +7429,26 @@ function openRenameSharedScheduleModal() {
 
 async function handleRenameSharedScheduleSubmit(e) {
     e.preventDefault();
-    if (!activeBaseScheduleId || !scheduleRef || !document.body.classList.contains('admin-mode')) return;
+    if (!document.body.classList.contains('admin-mode')) return;
 
-    const schedule = allSchedules.find(s => s.id === activeBaseScheduleId);
-    if (!schedule) return;
+    // Check if we're renaming a personal or shared schedule
+    const currentSelection = scheduleSelector.value;
+    const [type, scheduleId] = currentSelection.split('-');
+    
+    let schedule, docRef;
+    
+    if (type === 'personal' && activePersonalScheduleId) {
+        schedule = allPersonalSchedules.find(s => s.id === activePersonalScheduleId);
+        if (!schedule) return;
+        // Personal schedules are stored under user's collection
+        docRef = doc(db, 'artifacts', appId, 'users', userId, 'personal_schedules', activePersonalScheduleId);
+    } else if (type === 'shared' && activeBaseScheduleId && scheduleRef) {
+        schedule = allSchedules.find(s => s.id === activeBaseScheduleId);
+        if (!schedule) return;
+        docRef = scheduleRef;
+    } else {
+        return;
+    }
 
     const newName = renameSharedNewNameInput.value.trim();
     
@@ -6291,8 +7457,8 @@ async function handleRenameSharedScheduleSubmit(e) {
         renameSharedScheduleStatus.classList.remove('hidden');
         
         try {
-            await updateDoc(scheduleRef, { name: newName });
-            console.log("Shared schedule renamed.");
+            await updateDoc(docRef, { name: newName });
+            console.log(`${type} schedule renamed to: ${newName}`);
             // The onSnapshot listener will handle the UI update.
             
             renameSharedScheduleModal.classList.add('hidden'); // Close modal on success
@@ -6310,6 +7476,39 @@ async function handleRenameSharedScheduleSubmit(e) {
     }
 }
 // --- END V4.91 ---
+
+/**
+ * v5.68.0: Keeps the inline pencil button next to the schedule title in sync
+ * with whichever of the two existing rename buttons is currently enabled.
+ * This is a pure mirror — it does not introduce new permission logic. The
+ * button is shown if renameScheduleBtn (Admin Zone) or renamePersonalScheduleBtn
+ * (personal-schedule panel) is enabled, and clicking it dispatches to the
+ * appropriate existing handler.
+ *
+ * Call this after any code path that toggles either of those two buttons.
+ */
+function updateInlineRenameScheduleBtn() {
+    if (!inlineRenameScheduleBtn) return; // Defensive: element may not exist in older cached HTML
+    const adminCanRename = !renameScheduleBtn.disabled;
+    const userCanRenamePersonal = !renamePersonalScheduleBtn.disabled;
+    if (adminCanRename || userCanRenamePersonal) {
+        inlineRenameScheduleBtn.classList.remove('hidden');
+    } else {
+        inlineRenameScheduleBtn.classList.add('hidden');
+    }
+}
+
+function handleInlineRenameScheduleClick() {
+    // Prefer the admin flow (works for both shared and personal) when admin-mode is on.
+    if (document.body.classList.contains('admin-mode') && !renameScheduleBtn.disabled) {
+        openRenameSharedScheduleModal();
+        return;
+    }
+    // Otherwise fall back to the personal-only flow.
+    if (!renamePersonalScheduleBtn.disabled) {
+        handleRenamePersonalSchedule();
+    }
+}
 
 /**
     * NEW: v3.02 (4.03?) - Opens the modal to confirm bell deletion.
@@ -6391,7 +7590,7 @@ async function confirmDeleteBell() {
             const legacyBells = flattenPeriodsToLegacyBells(updatedPeriods);
 
             await updateDoc(scheduleRef, { periods: updatedPeriods, bells: legacyBells });
-            console.log(`Shared bell deleted: ${name} from ${currentSchedule.name}.`);
+            console.log(`Shared bell deleted: ${name} from schedule ${activeBaseScheduleId}.`);
 
         } else if (type === 'custom' && activePersonalScheduleId) {
             const personalScheduleRef = doc(db, 'artifacts', appId, 'users', userId, 'personal_schedules', activePersonalScheduleId);
@@ -6726,38 +7925,38 @@ function handleEditBellClick(bell) {
         
         // NEW 5.32.3: Handle anchor bells (shared type) - lock time but allow visual/sound/name
         // FIX V5.57.1: Added else clause for custom bells to ensure time input is enabled
+        // FIX V5.66.2: All users can set personal sound override; admin checkbox escalates to shared
         if (bell.type === 'shared') {
             const isAdmin = document.body.classList.contains('admin-mode');
                 
+            // Lock time for non-admins
             if (isAdmin) {
-                // Admin editing shared bell - full control with override checkbox
                 editBellTimeInput.disabled = false;
                 editBellTimeInput.style.opacity = '1';
                 editBellTimeInput.style.cursor = 'text';
-                    
-                // Hide lock message
                 const lockMsgDiv = document.getElementById('edit-time-lock-message');
                 if (lockMsgDiv) lockMsgDiv.classList.add('hidden');
-                    
-                editBellOverrideContainer.classList.remove('hidden');
-                document.getElementById('edit-bell-visual-override-container')?.classList.remove('hidden');
-                if (editBellOverrideCheckbox) editBellOverrideCheckbox.checked = false;
-                editBellSoundInput.disabled = true;
             } else {
-                // Non-admin editing shared bell - lock time, auto-override sound/name/visual
                 editBellTimeInput.disabled = true;
                 editBellTimeInput.style.opacity = '0.5';
                 editBellTimeInput.style.cursor = 'not-allowed';
-                    
-                // Show lock message in dedicated div
                 const lockMsgDiv = document.getElementById('edit-time-lock-message');
                 if (lockMsgDiv) lockMsgDiv.classList.remove('hidden');
-                    
-                // Hide override checkboxes - teachers always override
+            }
+            
+            // Sound is ALWAYS editable (personal override)
+            editBellSoundInput.disabled = false;
+            
+            // Admin sees checkbox to optionally push change to all users
+            // Non-admin doesn't see it (their changes are always personal)
+            if (isAdmin) {
+                editBellOverrideContainer.classList.remove('hidden');
+                document.getElementById('edit-bell-visual-override-container')?.classList.remove('hidden');
+                // Default unchecked = personal override only
+                if (editBellOverrideCheckbox) editBellOverrideCheckbox.checked = false;
+            } else {
                 editBellOverrideContainer.classList.add('hidden');
                 document.getElementById('edit-bell-visual-override-container')?.classList.add('hidden');
-                // Enable sound editing (auto-override for teachers)
-                editBellSoundInput.disabled = false;
             }
         } else {
             // FIX V5.57.1: Custom bells (including personal period anchor/fluke bells)
@@ -7024,17 +8223,11 @@ async function handleEditBellSubmit(e) {
 
     // NEW in 4.21: Check if we should override the sound
     // FIX V5.42: Add null check for checkbox
-    // FIX V5.46.5: For non-admin users, always take the sound (checkbox is hidden for them)
-    const isAdmin = document.body.classList.contains('admin-mode');
+    // FIX V5.66.2: Always capture the sound value for shared bells
+    // The save path (personal override vs shared bell) is determined later
     if (oldBell.type === 'shared') {
-        if (isAdmin && editBellOverrideCheckbox?.checked) {
-            // Admin with checkbox checked - take the new sound
-            newBell.sound = editBellSoundInput.value;
-        } else if (!isAdmin) {
-            // Non-admin always overrides (checkbox is hidden)
-            newBell.sound = editBellSoundInput.value;
-        }
-        // If admin and checkbox NOT checked, newBell.sound stays as oldBell.sound
+        // Always capture the sound - save path determines where it goes
+        newBell.sound = editBellSoundInput.value;
     } else if (oldBell.type === 'custom') {
         // It's a custom bell, so always take the new sound
         newBell.sound = editBellSoundInput.value;
@@ -7065,10 +8258,12 @@ async function handleEditBellSubmit(e) {
         // --- Case 1: Editing a Shared Bell ---
         if (oldBell.type === 'shared') {
             const isAdmin = document.body.classList.contains('admin-mode');
+            const wantsToOverrideForAll = isAdmin && editBellOverrideCheckbox?.checked;
             
-            // FIX V5.42.3: Non-admins can save personal overrides (nickname, visual)
-            // They just can't edit the actual shared bell data
-            if (!isAdmin) {
+            // FIX V5.66.2: Admin with checkbox UNCHECKED saves personal override (same as non-admin)
+            // Admin with checkbox CHECKED edits the actual shared bell for everyone
+            if (!wantsToOverrideForAll) {
+                // Personal override path (non-admin, or admin without checkbox)
                 const overrideKey = getBellOverrideKey(activeBaseScheduleId, oldBell);
                 const soundChanged = editBellSoundInput.value !== oldBell.originalSound;
                 const nameChanged = newBell.name !== oldBell.name;
@@ -7150,7 +8345,8 @@ async function handleEditBellSubmit(e) {
                 return;
             }
             
-            // Admin path: Actually edit the shared bell
+            // Admin path with checkbox checked: Actually edit the shared bell for all users
+            // V5.66.2: Only reaches here if admin AND override checkbox is checked
             // V4.0 LOGIC: Find and update the bell within the periods array
             const currentSchedule = allSchedules.find(s => s.id === activeBaseScheduleId);
             if (!currentSchedule) throw new Error("Active shared schedule not found.");
@@ -8143,6 +9339,458 @@ async function confirmRestorePersonalSchedule() {
     }
 }
 
+// ============================================
+// V5.63.0: SHARE CODE FEATURE
+// ============================================
+
+/**
+ * Generate a random 6-character share code
+ */
+function generateShareCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars (0,O,1,I)
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
+/**
+ * Open the share schedule modal
+ */
+async function openShareScheduleModal() {
+    if (!activePersonalScheduleId) {
+        showUserMessage('Please select a personal schedule first', 'error');
+        return;
+    }
+    
+    const schedule = allPersonalSchedules.find(s => s.id === activePersonalScheduleId);
+    if (!schedule) return;
+    
+    shareScheduleName.textContent = schedule.name;
+    shareScheduleStatus.classList.add('hidden');
+    
+    // Check if this schedule already has a share code
+    try {
+        const shareCodesRef = collection(db, 'artifacts', appId, 'public', 'data', 'share_codes');
+        const snapshot = await getDocs(shareCodesRef);
+        
+        let existingCode = null;
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.ownerId === userId && data.scheduleId === activePersonalScheduleId) {
+                existingCode = docSnap.id;
+            }
+        });
+        
+        if (existingCode) {
+            // Show existing code
+            shareCodeGenerate.classList.add('hidden');
+            shareCodeDisplay.classList.remove('hidden');
+            shareCodeValue.value = existingCode;
+        } else {
+            // Show generate button
+            shareCodeGenerate.classList.remove('hidden');
+            shareCodeDisplay.classList.add('hidden');
+        }
+        
+        shareScheduleModal.classList.remove('hidden');
+    } catch (error) {
+        console.error('Error checking share code:', error);
+        showUserMessage('Error checking share status', 'error');
+    }
+}
+
+/**
+ * Generate a new share code for the current schedule
+ */
+async function createShareCode() {
+    if (!activePersonalScheduleId || !userId) return;
+    
+    const schedule = allPersonalSchedules.find(s => s.id === activePersonalScheduleId);
+    if (!schedule) return;
+    
+    try {
+        shareScheduleStatus.textContent = 'Generating...';
+        shareScheduleStatus.classList.remove('hidden');
+        
+        // Generate unique code (check for collisions)
+        let code = generateShareCode();
+        let attempts = 0;
+        while (attempts < 10) {
+            const codeDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'share_codes', code));
+            if (!codeDoc.exists()) break;
+            code = generateShareCode();
+            attempts++;
+        }
+        
+        // Create the share code document
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'share_codes', code), {
+            ownerId: userId,
+            scheduleId: activePersonalScheduleId,
+            scheduleName: schedule.name,
+            ownerName: auth.currentUser?.displayName || 'Anonymous',
+            createdAt: new Date().toISOString()
+        });
+        
+        // Update UI
+        shareCodeValue.value = code;
+        shareCodeGenerate.classList.add('hidden');
+        shareCodeDisplay.classList.remove('hidden');
+        shareScheduleStatus.textContent = 'Share code created!';
+        
+        showUserMessage(`Share code created: ${code}`, 'success');
+        
+    } catch (error) {
+        console.error('Error creating share code:', error);
+        shareScheduleStatus.textContent = 'Error creating share code';
+        shareScheduleStatus.classList.remove('hidden');
+    }
+}
+
+/**
+ * Copy share code to clipboard
+ */
+async function copyShareCodeToClipboard() {
+    const code = shareCodeValue.value;
+    try {
+        await navigator.clipboard.writeText(code);
+        showUserMessage('Share code copied!', 'success');
+    } catch (error) {
+        // Fallback
+        shareCodeValue.select();
+        document.execCommand('copy');
+        showUserMessage('Share code copied!', 'success');
+    }
+}
+
+/**
+ * Revoke (delete) a share code
+ */
+async function revokeShareCode() {
+    const code = shareCodeValue.value;
+    if (!code) return;
+    
+    if (!confirm('Revoke this share code? Anyone following your schedule will lose access.')) {
+        return;
+    }
+    
+    try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'share_codes', code));
+        
+        shareCodeGenerate.classList.remove('hidden');
+        shareCodeDisplay.classList.add('hidden');
+        shareCodeValue.value = '';
+        
+        showUserMessage('Share code revoked', 'success');
+    } catch (error) {
+        console.error('Error revoking share code:', error);
+        showUserMessage('Error revoking share code', 'error');
+    }
+}
+
+/**
+ * Look up a share code as user types
+ */
+async function lookupShareCode(code) {
+    code = code.toUpperCase().trim();
+    
+    if (code.length !== 6) {
+        shareCodePreview.classList.add('hidden');
+        enterShareCodeSubmit.disabled = true;
+        currentShareCodeLookup = null;
+        return;
+    }
+    
+    try {
+        enterShareCodeStatus.textContent = 'Looking up...';
+        enterShareCodeStatus.classList.remove('hidden');
+        
+        const codeDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'share_codes', code));
+        
+        if (!codeDoc.exists()) {
+            enterShareCodeStatus.textContent = 'Share code not found';
+            enterShareCodeStatus.className = 'text-red-600 text-sm mt-4';
+            shareCodePreview.classList.add('hidden');
+            enterShareCodeSubmit.disabled = true;
+            currentShareCodeLookup = null;
+            return;
+        }
+        
+        const data = codeDoc.data();
+        
+        // Check if already following
+        const alreadyFollowing = followingSchedules.some(f => 
+            f.ownerId === data.ownerId && f.scheduleId === data.scheduleId
+        );
+        
+        if (alreadyFollowing) {
+            enterShareCodeStatus.textContent = "You're already following this schedule";
+            enterShareCodeStatus.className = 'text-yellow-600 text-sm mt-4';
+            shareCodePreview.classList.add('hidden');
+            enterShareCodeSubmit.disabled = true;
+            currentShareCodeLookup = null;
+            return;
+        }
+        
+        // Check if it's own schedule
+        if (data.ownerId === userId) {
+            enterShareCodeStatus.textContent = 'This is your own schedule!';
+            enterShareCodeStatus.className = 'text-yellow-600 text-sm mt-4';
+            shareCodePreview.classList.add('hidden');
+            enterShareCodeSubmit.disabled = true;
+            currentShareCodeLookup = null;
+            return;
+        }
+        
+        // Show preview
+        shareCodePreviewName.textContent = data.scheduleName;
+        shareCodePreviewOwner.textContent = `Shared by: ${data.ownerName || 'Unknown'}`;
+        shareCodePreview.classList.remove('hidden');
+        enterShareCodeStatus.classList.add('hidden');
+        enterShareCodeSubmit.disabled = false;
+        
+        currentShareCodeLookup = {
+            code: code,
+            ...data
+        };
+        
+    } catch (error) {
+        console.error('Error looking up share code:', error);
+        enterShareCodeStatus.textContent = 'Error looking up code';
+        enterShareCodeStatus.className = 'text-red-600 text-sm mt-4';
+        enterShareCodeSubmit.disabled = true;
+    }
+}
+
+/**
+ * Follow a schedule from a share code
+ */
+async function followSchedule() {
+    if (!currentShareCodeLookup || !userId) return;
+    
+    try {
+        enterShareCodeStatus.textContent = 'Following...';
+        enterShareCodeStatus.className = 'text-blue-600 text-sm mt-4';
+        enterShareCodeStatus.classList.remove('hidden');
+        
+        // Add to following collection
+        const followingRef = collection(db, 'artifacts', appId, 'users', userId, 'following');
+        await addDoc(followingRef, {
+            shareCode: currentShareCodeLookup.code,
+            ownerId: currentShareCodeLookup.ownerId,
+            scheduleId: currentShareCodeLookup.scheduleId,
+            scheduleName: currentShareCodeLookup.scheduleName,
+            ownerName: currentShareCodeLookup.ownerName,
+            addedAt: new Date().toISOString()
+        });
+        
+        showUserMessage(`Now following: ${currentShareCodeLookup.scheduleName}`, 'success');
+        
+        // Close modal and refresh
+        enterShareCodeModal.classList.add('hidden');
+        enterShareCodeForm.reset();
+        shareCodePreview.classList.add('hidden');
+        currentShareCodeLookup = null;
+        
+        // Reload following list
+        await loadFollowingSchedules();
+        updateFollowingButton();
+        renderScheduleSelector();
+        
+    } catch (error) {
+        console.error('Error following schedule:', error);
+        enterShareCodeStatus.textContent = 'Error following schedule';
+        enterShareCodeStatus.className = 'text-red-600 text-sm mt-4';
+    }
+}
+
+/**
+ * Unfollow a schedule
+ */
+async function unfollowSchedule(followDocId, scheduleName) {
+    if (!confirm(`Stop following "${scheduleName}"?`)) return;
+    
+    try {
+        // Check if we're currently viewing this schedule
+        const currentSelection = scheduleSelector.value;
+        const isViewingUnfollowed = currentSelection.startsWith('following-') && 
+            followingSchedules.find(f => f.docId === followDocId && 
+                currentSelection === `following-${f.ownerId}-${f.scheduleId}`);
+        
+        await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'following', followDocId));
+        
+        showUserMessage(`Unfollowed: ${scheduleName}`, 'success');
+        
+        // Reload
+        await loadFollowingSchedules();
+        updateFollowingButton();
+        renderScheduleSelector();
+        renderFollowingList();
+        
+        // If we were viewing the unfollowed schedule, switch to first available
+        if (isViewingUnfollowed) {
+            const firstOption = scheduleSelector.querySelector('option:not([disabled])');
+            if (firstOption && firstOption.value) {
+                setActiveSchedule(firstOption.value);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error unfollowing:', error);
+        showUserMessage('Error unfollowing schedule', 'error');
+    }
+}
+
+/**
+ * Load all schedules the user is following
+ */
+async function loadFollowingSchedules() {
+    if (!userId) {
+        followingSchedules = [];
+        return;
+    }
+    
+    try {
+        const followingRef = collection(db, 'artifacts', appId, 'users', userId, 'following');
+        const snapshot = await getDocs(followingRef);
+        
+        followingSchedules = [];
+        snapshot.forEach(docSnap => {
+            followingSchedules.push({
+                docId: docSnap.id,
+                ...docSnap.data()
+            });
+        });
+        
+        console.log(`Loaded ${followingSchedules.length} following schedules`);
+        
+    } catch (error) {
+        console.error('Error loading following schedules:', error);
+        followingSchedules = [];
+    }
+}
+
+/**
+ * Update the "Manage Followed Schedules" button text with count
+ */
+function updateFollowingButton() {
+    if (manageFollowingBtn) {
+        const count = followingSchedules.length;
+        manageFollowingBtn.textContent = count > 0 
+            ? `👥 Manage Followed Schedules (${count})`
+            : `👥 Manage Followed Schedules`;
+    }
+}
+
+/**
+ * Render the following list in the manage modal
+ */
+function renderFollowingList() {
+    if (!followingList) return;
+    
+    if (followingSchedules.length === 0) {
+        followingList.innerHTML = '<p class="text-gray-500 text-center py-4">You\'re not following any schedules yet.</p>';
+        return;
+    }
+    
+    followingList.innerHTML = followingSchedules.map(f => `
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+                <p class="font-semibold text-gray-800">${f.scheduleName}</p>
+                <p class="text-sm text-gray-500">by ${f.ownerName || 'Unknown'}</p>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" onclick="duplicateFollowedSchedule('${f.ownerId}', '${f.scheduleId}', '${f.scheduleName.replace(/'/g, "\\'")}')" 
+                        class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200" title="Duplicate as your own">
+                    📋 Copy
+                </button>
+                <button type="button" onclick="unfollowSchedule('${f.docId}', '${f.scheduleName.replace(/'/g, "\\'")}')" 
+                        class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200" title="Unfollow">
+                    ✕
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+/**
+ * Duplicate a followed schedule as your own personal schedule
+ */
+async function duplicateFollowedSchedule(ownerId, scheduleId, scheduleName) {
+    if (!userId) return;
+    
+    const newName = prompt('Name for your copy:', `${scheduleName} (Copy)`);
+    if (!newName) return;
+    
+    try {
+        showUserMessage('Duplicating schedule...', 'info');
+        
+        // Load the source schedule
+        const sourceRef = doc(db, 'artifacts', appId, 'users', ownerId, 'personal_schedules', scheduleId);
+        const sourceSnap = await getDoc(sourceRef);
+        
+        if (!sourceSnap.exists()) {
+            showUserMessage('Source schedule not found', 'error');
+            return;
+        }
+        
+        const sourceData = sourceSnap.data();
+        
+        // Create new schedule with copied data
+        const newScheduleRef = doc(collection(db, 'artifacts', appId, 'users', userId, 'personal_schedules'));
+        
+        await setDoc(newScheduleRef, {
+            name: newName,
+            baseScheduleId: sourceData.baseScheduleId || null,
+            isStandalone: sourceData.isStandalone || false,
+            periods: sourceData.periods || [],
+            bellOverrides: {}, // Start fresh - don't copy overrides
+            passingPeriodVisual: sourceData.passingPeriodVisual || null,
+            createdAt: new Date().toISOString(),
+            copiedFrom: {
+                ownerId: ownerId,
+                scheduleId: scheduleId,
+                scheduleName: scheduleName
+            }
+        });
+        
+        showUserMessage(`Created: ${newName}`, 'success');
+        
+        // Close modal if open
+        manageFollowingModal?.classList.add('hidden');
+        
+    } catch (error) {
+        console.error('Error duplicating schedule:', error);
+        showUserMessage('Error duplicating schedule', 'error');
+    }
+}
+
+/**
+ * Open the manage following modal
+ */
+function openManageFollowingModal() {
+    renderFollowingList();
+    manageFollowingModal.classList.remove('hidden');
+}
+
+/**
+ * Open the enter share code modal
+ */
+function openEnterShareCodeModal() {
+    enterShareCodeForm.reset();
+    shareCodePreview.classList.add('hidden');
+    enterShareCodeStatus.classList.add('hidden');
+    enterShareCodeSubmit.disabled = true;
+    currentShareCodeLookup = null;
+    enterShareCodeModal.classList.remove('hidden');
+    enterShareCodeInput.focus();
+}
+
+// ============================================
+// END V5.63.0: SHARE CODE FEATURE
+// ============================================
+
 // --- End v3.05 Functions ---
 
 // ... existing code ...
@@ -8570,14 +10218,6 @@ function openRelativeBellModal() {
     relativeBellModal.classList.remove('hidden');
 }
 
-// DELETED in 4.38: This function is no longer used.
-// The 'updateCalculatedTime' function now handles this logic.
-/*
-async function handleRelativeTimeChange() {
-    ...
-}
-*/
-
 /**
     * MODIFIED: v4.10 - Submits the new "relative" bell object.
     * This now saves a dependency link, NOT a static time.
@@ -8892,23 +10532,6 @@ function openMultiAddRelativeModal() {
 }
 
 /**
-    * NEW: v4.42 - Finds the "Period Start" or "Period End" bell for a given period.
-    */
-function findPeriodAnchorBell(periodName, anchorType) {
-    const period = calculatedPeriodsList.find(p => p.name === periodName);
-    if (!period || !period.bells || period.bells.length === 0) {
-        return null; // Period not found or is empty
-    }
-    
-    // Bells are already sorted by time
-    if (anchorType === 'period_start') {
-        return period.bells[0]; // First bell
-    } else {
-        return period.bells[period.bells.length - 1]; // Last bell
-    }
-}
-
-/**
     * NEW: v4.42 - Submits the multi-add relative bells
     */
 async function handleSubmitMultiAddRelativeBell(e) {
@@ -9012,11 +10635,23 @@ function recalculateAndRenderAll() {
         console.warn("Delaying calculation: base and personal schedules have not both loaded.");
         return; // Exit, wait for the other listener to fire
     }
-    // console.log("Running recalculateAndRenderAll..."); // Good for debugging
+    // V5.66.3: Debug logging for calculation
+    console.log("Running recalculateAndRenderAll...", {
+        localSchedulePeriodsCount: localSchedulePeriods.length,
+        personalBellsPeriodsCount: personalBellsPeriods.length,
+        activeBaseScheduleId,
+        activePersonalScheduleId
+    });
 
     // 1. Run the calculation engine
     // It reads from the global localSchedulePeriods and personalBellsPeriods
     const { calculatedPeriods, flatBellList } = resolveAllBellTimes();
+    
+    // V5.66.3: Debug calculation results
+    console.log("Calculation complete:", {
+        calculatedPeriodsCount: calculatedPeriods.length,
+        flatBellListCount: flatBellList.length
+    });
     
     calculatedPeriodsList = calculatedPeriods; // NEW in 4.18: Store final calculated periods
 
@@ -9128,6 +10763,15 @@ async function handleVisualUpload() {
                     hiddenVisualCue.value = downloadURL;
             }
             console.log('Updated quick bell visual cue for slot', currentCustomBellIconSlot);
+        }
+        
+        // V5.63.2: If this is a custom bell manager dropdown, update hidden inputs
+        if (currentVisualSelectTarget.classList.contains('custom-bell-visual-select') && currentCustomBellIconSlot) {
+            const hiddenVisualCue = document.querySelector(`input[data-bell-id="${currentCustomBellIconSlot}"][data-field="visualCue"]`);
+            if (hiddenVisualCue) {
+                hiddenVisualCue.value = downloadURL;
+            }
+            console.log('Updated custom bell visual cue for slot', currentCustomBellIconSlot);
         }
                 
         currentVisualSelectTarget = null; // Clear state (only once!)
@@ -9622,6 +11266,80 @@ async function handleSubmitEditPeriodDetails(e) {
     }
 }
 
+// --- V5.45.1: Unified Period Deletion Handler ---
+/**
+ * V5.45.1 - Unified period deletion handler for both custom and shared periods
+ * @param {string} periodName - The name of the period to delete
+ * @param {string} origin - 'custom' for personal periods, 'shared' for shared schedule periods
+ */
+async function handleDeletePeriod(periodName, origin = 'custom') {
+    const isAdmin = document.body.classList.contains('admin-mode');
+    
+    // Validate based on period type
+    if (origin === 'custom') {
+        if (!activePersonalScheduleId || !periodName) return;
+    } else if (origin === 'shared') {
+        if (!activeBaseScheduleId || !isAdmin || !periodName) return;
+    } else {
+        return;
+    }
+
+    const periodType = origin === 'custom' ? 'custom' : 'shared';
+    const confirmed = await showConfirmationModal(
+        `Are you sure you want to permanently delete the ${periodType} period "${periodName}"? All associated bells will also be deleted. This action cannot be undone.`,
+        "Confirm Period Deletion",
+        "Delete Period"
+    );
+
+    if (!confirmed) {
+        const statusEl = document.getElementById('edit-period-status-msg');
+        if (statusEl) statusEl.classList.add('hidden'); 
+        return;
+    }
+    
+    try {
+        if (origin === 'custom') {
+            // Delete from personal schedule
+            const periodIndex = personalBellsPeriods.findIndex(p => p.name === periodName);
+            if (periodIndex === -1) {
+                throw new Error(`Period "${periodName}" not found in local state.`);
+            }
+
+            const updatedPeriods = [...personalBellsPeriods];
+            updatedPeriods.splice(periodIndex, 1);
+
+            const visualKey = getVisualOverrideKey(activeBaseScheduleId, periodName);
+            if (periodVisualOverrides[visualKey]) {
+                delete periodVisualOverrides[visualKey];
+                saveVisualOverrides();
+            }
+
+            const personalScheduleRef = doc(db, 'artifacts', appId, 'users', userId, 'personal_schedules', activePersonalScheduleId);
+            await updateDoc(personalScheduleRef, { periods: updatedPeriods });
+            
+        } else if (origin === 'shared') {
+            // Delete from shared schedule (admin only)
+            const periodIndex = localSchedulePeriods.findIndex(p => p.name === periodName);
+            if (periodIndex === -1) {
+                throw new Error(`Period "${periodName}" not found in shared schedule.`);
+            }
+
+            const updatedPeriods = [...localSchedulePeriods];
+            updatedPeriods.splice(periodIndex, 1);
+
+            await updateDoc(scheduleRef, { periods: updatedPeriods });
+        }
+
+        showUserMessage(`${periodType.charAt(0).toUpperCase() + periodType.slice(1)} period "${periodName}" deleted successfully.`);
+        
+    } catch (error) {
+        console.error("Error deleting period:", error);
+        showUserMessage(`Error deleting period: ${error.message}`);
+    } finally {
+        editPeriodModal.classList.add('hidden');
+    }
+}
+
 // --- NEW in 4.44: Visual Cue Display Logic ---
 
 /**
@@ -9726,6 +11444,7 @@ function updateVisualDropdowns() {
     // Added 5.31.1: Dropdowns to add images to individual bells
     // MODIFIED V5.42.0: Added passing period visual select
     // MODIFIED V5.58.3: Added period modal visual select
+    // MODIFIED V5.63.2: Added custom bell manager visual selects
     const selects = [ 
         editPeriodImageSelect, 
         newPeriodImageSelect, 
@@ -9736,7 +11455,9 @@ function updateVisualDropdowns() {
         document.getElementById('multi-bell-visual'),
         document.getElementById('multi-relative-bell-visual'),
         document.getElementById('passing-period-visual-select'), // NEW V5.42.0
-        document.getElementById('multi-period-visual') // V5.58.3: Period modal visual
+        document.getElementById('multi-period-visual'), // V5.58.3: Period modal visual
+        // V5.63.2: Include all custom bell visual selects from the manager
+        ...document.querySelectorAll('.custom-bell-visual-select')
     ];
     
     // 1. Create options for default SVGs (dynamically)
@@ -9838,7 +11559,7 @@ function getVisualHtml(value, periodName, _skipOverrideLookup = false) {
         // MODIFIED V5.41: Use centralized config
         const parts = value.replace('[CUSTOM_TEXT] ', '').split('|');
         const customText = parts[0] || '...';
-        const bgColor = parts[1] || '#4338CA'; // Default bg
+        const bgColor = parts[1] || '#4B9CD3'; // Default bg
         const fgColor = parts[2] || '#FFFFFF'; // Default fg
         
         const svgFontSize = customText.length > 2 ? 
@@ -9955,7 +11676,7 @@ function getVisualIconHtml(value, periodName) {
     if (value.startsWith('[CUSTOM_TEXT]')) {
         const parts = value.replace('[CUSTOM_TEXT] ', '').split('|');
         const customText = parts[0] || '...';
-        const bgColor = parts[1] || '#4338CA'; // Default bg
+        const bgColor = parts[1] || '#4B9CD3'; // Default bg
         const fgColor = parts[2] || '#FFFFFF'; // Default fg
         
         const svgFontSize = customText.length > 2 ? 
@@ -11638,37 +13359,8 @@ async function handleImportCurrentFileChange(e) {
             // Hide the initial status
             importStatus.classList.add('hidden');
             
-            // If it's a personal backup OR has modifications, show preview modal
-            if (analysis.isPersonalBackup || analysis.modified.sounds.items.length > 0 || analysis.modified.visuals.items.length > 0) {
-                showImportPreviewModal(analysis);
-            } else {
-                // Admin backup with no modifications - show simple confirmation
-                const confirmed = await showConfirmationModal(
-                    `This will OVERWRITE your current schedule "${currentSchedule.name}" with the data from "${data.schedule.name}" (from file: ${file.name}). This action cannot be undone.`,
-                    "Confirm Overwrite Current Schedule",
-                    "Overwrite Current"
-                );
-
-                if (!confirmed) {
-                    importStatus.textContent = "Import cancelled by user.";
-                    setTimeout(() => importStatus.classList.add('hidden'), 3000);
-                    importCurrentFileInput.value = '';
-                    return;
-                }
-
-                // Proceed with direct import
-                importStatus.textContent = `Importing and overwriting "${currentSchedule.name}"...`;
-                importStatus.classList.remove('hidden');
-                
-                const scheduleRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBaseScheduleId);
-                await updateDoc(scheduleRef, { 
-                    name: data.schedule.name, 
-                    periods: data.schedule.periods 
-                });
-
-                importStatus.textContent = `Successfully overwrote "${currentSchedule.name}" with "${data.schedule.name}".`;
-                setTimeout(() => importStatus.classList.add('hidden'), 4000);
-            }
+            // V5.45.2: Always show preview modal with rename option
+            showImportPreviewModal(analysis);
 
         } catch (error) {
             console.error("Current schedule import failed:", error);
@@ -12053,10 +13745,12 @@ function renderAudioFileManager() {
     * NEW V4.76: Helper to add a new option to all audio dropdowns
     */
 function addNewAudioOption(url, name, nickname = '') { // MODIFIED V4.97
+    // V5.63.2: Include custom bell sound selects
     const selects = [
         sharedSoundInput, multiBellSoundInput, editBellSoundInput,
         changeSoundSelect, quickBellSoundSelect, addStaticBellSound, 
-        relativeBellSoundSelect
+        relativeBellSoundSelect,
+        ...document.querySelectorAll('.custom-bell-sound-select')
     ];
     selects.forEach(select => {
         if (!select) return;
@@ -12074,6 +13768,7 @@ function updateSoundDropdowns() {
     // --- MODIFIED: v3.43 ---
     // with the v2.24 (working) logic of using `file.url` as the
     // value for the options. This is the other half of the fix.
+    // V5.63.2: Include custom bell sound selects
     
     const selects = [
         // This is the full list of selects from v3.42
@@ -12089,7 +13784,9 @@ function updateSoundDropdowns() {
         { el: relativeBellSoundSelect, myGroup: 'relative-my-sounds-optgroup', sharedGroup: 'relative-shared-sounds-optgroup' },
         // V5.58.0: Add period modal sound selects
         { el: multiPeriodStartSoundInput, myGroup: 'period-start-my-sounds-optgroup', sharedGroup: 'period-start-shared-sounds-optgroup' },
-        { el: multiPeriodEndSoundInput, myGroup: 'period-end-my-sounds-optgroup', sharedGroup: 'period-end-shared-sounds-optgroup' }
+        { el: multiPeriodEndSoundInput, myGroup: 'period-end-my-sounds-optgroup', sharedGroup: 'period-end-shared-sounds-optgroup' },
+        // V5.63.2: Include all custom bell sound selects from the manager
+        ...Array.from(document.querySelectorAll('.custom-bell-sound-select')).map(el => ({ el, myGroup: null, sharedGroup: null }))
     ];
 
     // NEW V4.76: Add [UPLOAD] option
@@ -12392,6 +14089,10 @@ async function confirmDeleteAudio() {
 // --- Init and Event Listeners ---
 function init() {
     initFirebase();
+    
+    // V5.66.0: Initialize theme early so it applies before page is visible
+    loadThemePreference();
+    initThemeListeners();
 
     // --- VERSION STAMP ---
     // This finds the HTML element and stamps the JS version onto it
@@ -12408,7 +14109,6 @@ function init() {
     }
     
     // Optional: Also update the Browser Tab Title automatically
-    document.title = `Ellis Web Bell ${APP_VERSION}`;
     console.log(`App Version Loaded: ${APP_VERSION}`);
     
     // V5.51.0: Register Service Worker for PWA support
@@ -12502,6 +14202,11 @@ function init() {
     renameSharedCancelBtn.addEventListener('click', () => {
         renameSharedScheduleModal.classList.add('hidden');
     });
+    // v5.68.0: Inline pencil button next to schedule title — routes to the
+    // appropriate existing rename handler.
+    if (inlineRenameScheduleBtn) {
+        inlineRenameScheduleBtn.addEventListener('click', handleInlineRenameScheduleClick);
+    }
 
     // NEW V5.00: Custom Quick Bell Manager Listeners
     showCustomQuickBellManagerBtn.addEventListener('click', () => {
@@ -12605,9 +14310,9 @@ function init() {
                     
                     // NEW V5.00: Include Icon colors and text
                     iconText: slotData.iconText.trim().substring(0, 3) || String(id),
-                    iconBgColor: slotData.iconBgColor || '#4338CA',
+                    iconBgColor: slotData.iconBgColor || '#4B9CD3',
                     iconFgColor: slotData.iconFgColor || '#FFFFFF',
-                    visualCue: slotData.visualCue || '[CUSTOM_TEXT] ?|#4338CA|#FFFFFF',
+                    visualCue: slotData.visualCue || '[CUSTOM_TEXT] ?|#4B9CD3|#FFFFFF',
                     
                     sound: slotData.sound || 'ellisBell.mp3',
                     isActive: isActive
@@ -12669,7 +14374,7 @@ function init() {
                     minutes: 5,
                     seconds: 0,
                     iconText: String(newId),
-                    iconBgColor: '#4338CA',
+                    iconBgColor: '#4B9CD3',
                     iconFgColor: '#FFFFFF',
                     sound: 'ellisBell.mp3',
                     isActive: true
@@ -12712,7 +14417,7 @@ function init() {
                 if (visualCue.startsWith('[CUSTOM_TEXT] ')) {
                     const parts = visualCue.replace('[CUSTOM_TEXT] ', '').split('|');
                     customTextInput.value = parts[0] || '';
-                    customTextBgColorInput.value = parts[1] || '#4338CA';
+                    customTextBgColorInput.value = parts[1] || '#4B9CD3';
                     customTextColorInput.value = parts[2] || '#FFFFFF';
                 }
                 
@@ -12819,9 +14524,11 @@ function init() {
     
     // NEW V5.01: Listener for the Active/Deactive checkbox (Toggle interaction)
     // V5.43.1: Also handle visual dropdown changes
+    // V5.63.2: Also handle sound dropdown [UPLOAD]
     customQuickBellListContainer.addEventListener('change', (e) => {
         const toggle = e.target.closest('.custom-quick-bell-toggle');
         const visualSelect = e.target.closest('.custom-bell-visual-select');
+        const soundSelect = e.target.closest('.custom-bell-sound-select'); // V5.63.2
         
         if (toggle) {
             const row = toggle.closest('.p-4');
@@ -12875,6 +14582,7 @@ function init() {
             // Handle special values
             if (selectedValue === '[UPLOAD]') {
                 currentCustomBellIconSlot = bellId;
+                currentVisualSelectTarget = visualSelect; // V5.63.2: Set target so upload completion updates this dropdown
                 uploadVisualModal.style.zIndex = '70';
                 uploadVisualModal.classList.remove('hidden');
                 visualUploadStatus.classList.add('hidden');
@@ -12892,11 +14600,11 @@ function init() {
                 if (selectedValue.startsWith('[CUSTOM_TEXT] ')) {
                     const parts = selectedValue.replace('[CUSTOM_TEXT] ', '').split('|');
                     customTextInput.value = parts[0] || '';
-                    customTextBgColorInput.value = parts[1] || '#4338CA';
+                    customTextBgColorInput.value = parts[1] || '#4B9CD3';
                     customTextColorInput.value = parts[2] || '#FFFFFF';
                 } else {
                     customTextInput.value = '';
-                    customTextBgColorInput.value = '#4338CA';
+                    customTextBgColorInput.value = '#4B9CD3';
                     customTextColorInput.value = '#FFFFFF';
                 }
                 
@@ -12928,7 +14636,7 @@ function init() {
             const buttonPreview = row.querySelector('.custom-bell-button-preview');
             if (buttonPreview) {
                 // V5.43.2: Determine bg/fg colors from value
-                let bgColor = '#4338CA';
+                let bgColor = '#4B9CD3';
                 let fgColor = '#FFFFFF';
                 
                 // Check for [BG:...] prefix first
@@ -12952,9 +14660,29 @@ function init() {
                 if (fgColorInput) fgColorInput.value = fgColor;
             }
         }
+        
+        // V5.63.2: Handle sound dropdown [UPLOAD] selection
+        if (soundSelect) {
+            const selectedValue = soundSelect.value;
+            
+            if (selectedValue === '[UPLOAD]') {
+                // Store the select element that triggered this
+                currentSoundSelectTarget = soundSelect;
+                
+                // Revert to previous selection
+                const bellId = parseInt(soundSelect.dataset.bellId);
+                const bellData = customQuickBells.find(b => b && b.id === bellId);
+                soundSelect.value = bellData?.sound || 'ellisBell.mp3';
+                
+                // Open the audio upload modal
+                uploadAudioModal.classList.remove('hidden');
+                audioUploadStatus.classList.add('hidden');
+            }
+        }
     });
 
     // NEW: Quick Launch Listener for Custom Buttons
+    // V5.65.0: Updated to support per-bell broadcast setting
     quickBellControls.addEventListener('click', (e) => {
         const customBtn = e.target.closest('.custom-quick-launch-btn');
         if (customBtn) {
@@ -12963,7 +14691,8 @@ function init() {
             const seconds = parseInt(customBtn.dataset.seconds, 10) || 0;
             const sound = customBtn.dataset.sound;
             const name = customBtn.dataset.name;
-            startQuickBell(hours, minutes, seconds, sound, name);
+            const shouldBroadcast = customBtn.dataset.broadcast === 'true';
+            startQuickBell(hours, minutes, seconds, sound, name, shouldBroadcast);
         }
     });
     
@@ -13134,6 +14863,58 @@ function init() {
         renamePersonalScheduleModal.classList.add('hidden');
         renamePersonalScheduleStatus.classList.add('hidden');
     });
+
+    // V5.63.0: Share Code Feature Event Listeners
+    if (shareScheduleBtn) {
+        shareScheduleBtn.addEventListener('click', openShareScheduleModal);
+    }
+    if (generateShareCodeBtn) {
+        generateShareCodeBtn.addEventListener('click', createShareCode);
+    }
+    if (copyShareCodeBtn) {
+        copyShareCodeBtn.addEventListener('click', copyShareCodeToClipboard);
+    }
+    if (revokeShareCodeBtn) {
+        revokeShareCodeBtn.addEventListener('click', revokeShareCode);
+    }
+    if (shareScheduleCloseBtn) {
+        shareScheduleCloseBtn.addEventListener('click', () => shareScheduleModal.classList.add('hidden'));
+    }
+    
+    // Enter Share Code
+    if (enterShareCodeInput) {
+        enterShareCodeInput.addEventListener('input', (e) => {
+            const code = e.target.value.toUpperCase();
+            e.target.value = code; // Force uppercase
+            lookupShareCode(code);
+        });
+    }
+    if (enterShareCodeForm) {
+        enterShareCodeForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            followSchedule();
+        });
+    }
+    if (enterShareCodeCancel) {
+        enterShareCodeCancel.addEventListener('click', () => {
+            enterShareCodeModal.classList.add('hidden');
+            enterShareCodeForm.reset();
+        });
+    }
+    
+    // Manage Following
+    if (manageFollowingBtn) {
+        manageFollowingBtn.addEventListener('click', openManageFollowingModal);
+    }
+    if (addShareCodeBtn) {
+        addShareCodeBtn.addEventListener('click', () => {
+            manageFollowingModal.classList.add('hidden');
+            openEnterShareCodeModal();
+        });
+    }
+    if (manageFollowingCloseBtn) {
+        manageFollowingCloseBtn.addEventListener('click', () => manageFollowingModal.classList.add('hidden'));
+    }
 
 
     // Modals (Delete Bell)
@@ -13306,6 +15087,10 @@ function init() {
     document.getElementById('preview-quick-bell-sound')?.addEventListener('click', () => {
         playBell(document.getElementById('quickBellSoundSelect').value);
     });
+    
+    // V5.65.0: Broadcast toggle button
+    document.getElementById('quick-bell-broadcast-toggle')?.addEventListener('click', toggleBroadcastMode);
+    
     document.getElementById('preview-multi-bell-sound')?.addEventListener('click', () => {
         playBell(document.getElementById('multi-bell-sound').value);
     });
@@ -13565,12 +15350,14 @@ function init() {
         }
         
         // NEW V4.61: Handle Delete Period button click in list view (Integrated)
+        // V5.45.1: Added support for admin deleting shared periods
         const deleteBtn = target.closest('.delete-list-period-btn');
         if (deleteBtn) {
             const periodName = deleteBtn.dataset.periodName;
+            const periodOrigin = deleteBtn.dataset.periodOrigin || 'custom';
             if (periodName) {
                 // Call the deletion handler (it includes confirmation)
-                handleDeleteCustomPeriod(periodName);
+                handleDeletePeriod(periodName, periodOrigin);
                 return; // Action handled
             }
         }
@@ -13740,6 +15527,10 @@ function init() {
         if (queueActive) {
             cancelQueue();
         } else {
+            // V5.65.0: Broadcast cancel if the bell was broadcast-started
+            if (quickBellEndTime && quickBellEndTime.wasBroadcast && userId && !isUserAnonymous) {
+                broadcastQuickBell('cancel', 0, 0, 0, '', '', 0);
+            }
             quickBellEndTime = null;
             quickBellSound = 'ellisBell.mp3';
             document.getElementById('cancel-quick-bell-btn').classList.add('hidden');
@@ -14013,14 +15804,14 @@ function init() {
             
             // ALWAYS clear inputs first, then fill if there's a saved value
             customTextInput.value = ''; 
-            customTextBgColorInput.value = '#4338CA';
+            customTextBgColorInput.value = '#4B9CD3';
             customTextColorInput.value = '#FFFFFF';
             
             // MODIFIED V4.75: Logic to pre-fill input AND colors if saved
             if (originalValueCustom.startsWith('[CUSTOM_TEXT]')) {
                 const parts = originalValueCustom.replace('[CUSTOM_TEXT] ', '').split('|');
                 customTextInput.value = parts[0] || '';
-                customTextBgColorInput.value = parts[1] || '#4338CA';
+                customTextBgColorInput.value = parts[1] || '#4B9CD3';
                 customTextColorInput.value = parts[2] || '#FFFFFF';
                 e.target.value = originalValueCustom; // Keep the original custom value selected
             } else {
@@ -14068,7 +15859,7 @@ function init() {
             // Custom text - extract parts
             const parts = value.replace('[CUSTOM_TEXT] ', '').split('|');
             const text = parts[0] || '?';
-            const bgColor = parts[1] || '#4338CA';
+            const bgColor = parts[1] || '#4B9CD3';
             const fgColor = parts[2] || '#FFFFFF';
             
             previewFull.innerHTML = `<span class="text-6xl font-bold" style="color: ${fgColor};">${text}</span>`;
@@ -14937,6 +16728,10 @@ function init() {
                 { id: 'bulk-edit-modal', close: () => bulkEditModal.classList.add('hidden') },
                 { id: 'custom-quick-bell-manager-modal', close: () => document.getElementById('custom-quick-bell-manager-modal')?.classList.add('hidden') },
                 { id: 'passing-period-visual-modal', close: () => document.getElementById('passing-period-visual-modal')?.classList.add('hidden') },
+                // V5.63.0: Share Code Feature Modals
+                { id: 'share-schedule-modal', close: () => shareScheduleModal?.classList.add('hidden') },
+                { id: 'enter-share-code-modal', close: () => { enterShareCodeModal?.classList.add('hidden'); enterShareCodeForm?.reset(); } },
+                { id: 'manage-following-modal', close: () => manageFollowingModal?.classList.add('hidden') },
             ];
             
             // Find the first visible modal and close it

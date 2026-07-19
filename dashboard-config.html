@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Config v1.2.0</title>
+    <!-- Dashboard Config v1.2.0 -->
+    <!-- v1.2.0: Dashboard rewrite support. Replaced Google Drive "Video" section
+         with Canva Embed URL field. Renamed sheetID -> housesSheetCsvUrl and
+         updated helper text to request the full published-CSV URL (the dashboard
+         code now fetches that URL directly, no more constructing it from a raw ID).
+         Subtitle updated (dropped "tvOS" — that deployment target isn't happening). -->
+    <!-- v1.1.0: Palette alignment — body background to slate, added Carolina Sky variable. -->
+    <!-- v1.0.0: First explicit version. Audit pass — shared firebase-config.js; version in <title> and footer. -->
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <!-- Shared Firebase config (v1.0.0: extracted from inline) -->
+    <script src="firebase-config.js"></script>
+    
+    <style>
+        :root {
+            --carolina-blue: #4B9CD3;
+            --carolina-blue-light: #7BAFD4;
+            --carolina-blue-sky: #8FC3E8;   /* v1.1.0 */
+            --dark-grey: #1a1a1a;
+            --slate-bg: #111827;            /* v1.1.0 */
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: var(--slate-bg);    /* v1.1.0: was #000 */
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: var(--carolina-blue);
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-bottom: 32px;
+        }
+        
+        /* Login Section */
+        #login-section {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        
+        #login-section p {
+            color: #888;
+            margin-bottom: 24px;
+        }
+        
+        .btn-google {
+            background: #fff;
+            color: #333;
+            padding: 14px 28px;
+            border-radius: 6px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .btn-google:hover {
+            background: #f0f0f0;
+        }
+        
+        .btn-google img {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* User Info */
+        .user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--dark-grey);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .user-info .user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .user-info img {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+        }
+        
+        .user-info .name {
+            font-weight: 600;
+        }
+        
+        .user-info .email {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .btn-signout {
+            background: transparent;
+            border: 1px solid #444;
+            color: #888;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-signout:hover {
+            border-color: #666;
+            color: #fff;
+        }
+        
+        /* Config Form */
+        #config-section {
+            display: none;
+        }
+        
+        .section {
+            background: var(--dark-grey);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #333;
+        }
+        
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: var(--carolina-blue-light);
+        }
+        
+        .field {
+            margin-bottom: 16px;
+        }
+        
+        .field:last-child {
+            margin-bottom: 0;
+        }
+        
+        label {
+            display: block;
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 6px;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #000;
+            color: #fff;
+            font-size: 16px;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--carolina-blue);
+        }
+        
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        button {
+            padding: 14px 28px;
+            border-radius: 6px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--carolina-blue);
+            color: #fff;
+            width: 100%;
+        }
+        
+        .btn-primary:hover {
+            background: var(--carolina-blue-light);
+        }
+        
+        .btn-primary:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .status.success {
+            display: block;
+            background: rgba(0, 200, 100, 0.2);
+            border: 1px solid rgba(0, 200, 100, 0.5);
+            color: #0c8;
+        }
+        
+        .status.error {
+            display: block;
+            background: rgba(255, 100, 100, 0.2);
+            border: 1px solid rgba(255, 100, 100, 0.5);
+            color: #f66;
+        }
+        
+        .status.loading {
+            display: block;
+            background: rgba(75, 156, 211, 0.2);
+            border: 1px solid rgba(75, 156, 211, 0.5);
+            color: var(--carolina-blue-light);
+        }
+        
+        .help {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .help a {
+            color: var(--carolina-blue);
+            text-decoration: none;
+        }
+        
+        .help a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📺 Dashboard Config</h1>
+        <p class="subtitle">Configure the School Dashboard</p>
+        
+        <!-- Login Section -->
+        <div id="login-section">
+            <p>Sign in with your admin Google account to configure the dashboard.</p>
+            <button class="btn-google" onclick="signIn()">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                Sign in with Google
+            </button>
+            <div class="status" id="login-status"></div>
+        </div>
+        
+        <!-- Config Section (hidden until signed in) -->
+        <div id="config-section">
+            <div class="user-info">
+                <div class="user">
+                    <img id="user-photo" src="" alt="">
+                    <div>
+                        <div class="name" id="user-name"></div>
+                        <div class="email" id="user-email"></div>
+                    </div>
+                </div>
+                <button class="btn-signout" onclick="signOut()">Sign Out</button>
+            </div>
+            
+            <!-- Canva Section (v1.2.0: replaces the old Google Drive video workflow) -->
+            <div class="section">
+                <h2>🎨 Canva</h2>
+                <div class="field">
+                    <label>Canva Embed URL</label>
+                    <input type="text" id="canvaUrl" placeholder="https://www.canva.com/design/DAG.../view?embed">
+                    <p class="help">
+                        Open your Canva presentation, click <strong>Share → More → Embed</strong>, and paste the URL.<br>
+                        The URL ends in <code>/view?embed</code>. Canva handles its own auto-play loop — the dashboard does not reload the iframe on a timer, so the presentation plays continuously without interruption.<br>
+                        Leave blank to show the school logo instead.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Schedules Section -->
+            <div class="section">
+                <h2>🕐 Schedules</h2>
+                
+                <div class="field">
+                    <div class="row">
+                        <div>
+                            <label>Schedule 1</label>
+                            <select id="s1"><option value="">Loading...</option></select>
+                        </div>
+                        <div>
+                            <label>Label 1</label>
+                            <input type="text" id="l1" placeholder="6th">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="field">
+                    <div class="row">
+                        <div>
+                            <label>Schedule 2</label>
+                            <select id="s2"><option value="">Loading...</option></select>
+                        </div>
+                        <div>
+                            <label>Label 2</label>
+                            <input type="text" id="l2" placeholder="7th">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="field">
+                    <div class="row">
+                        <div>
+                            <label>Schedule 3</label>
+                            <select id="s3"><option value="">Loading...</option></select>
+                        </div>
+                        <div>
+                            <label>Label 3</label>
+                            <input type="text" id="l3" placeholder="8th">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Google Sheet Section (v1.2.0: renamed sheetID -> housesSheetCsvUrl) -->
+            <div class="section">
+                <h2>📊 House Scores Sheet</h2>
+                <div class="field">
+                    <label>Published Sheet CSV URL</label>
+                    <input type="text" id="housesSheetCsvUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
+                    <p class="help">
+                        Open your scores sheet, <strong>File → Share → Publish to web</strong>, choose <em>Comma-separated values (.csv)</em>, click Publish, and paste the generated URL.<br>
+                        Expected structure: row 1 = house names (headers), row 2 = scores. Columns A=Accomodore, B=Callidus, C=Princeps, D=Vevaios.<br>
+                        The dashboard fetches this every 5 minutes.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Save Button -->
+            <button class="btn-primary" id="saveBtn" onclick="saveConfig()">Save Configuration</button>
+            
+            <div class="status" id="status"></div>
+            
+            <!-- Quick Links -->
+            <div class="section" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #333;">
+                <h2>🔗 Quick Links</h2>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+                    <a href="dashboard.html?tv" target="_blank" class="btn-primary" style="text-decoration: none; text-align: center;">
+                        📺 Launch TV Dashboard
+                    </a>
+                    <a href="dashboard.html" target="_blank" style="background: #333; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none;">
+                        🎛️ Dashboard Setup
+                    </a>
+                    <a href="clock.html" target="_blank" style="background: #333; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none;">
+                        🕐 Clock Setup
+                    </a>
+                </div>
+                <p class="help" style="margin-top: 12px;">
+                    The TV Dashboard uses this config. Individual users can customize their view via Dashboard Setup.
+                </p>
+            </div>
+            
+            <!-- Back Link + Version -->
+            <div style="margin-top: 32px; text-align: center;">
+                <a href="index.html" style="color: var(--carolina-blue); text-decoration: none;">← Back to Bell Schedule</a>
+                <div style="margin-top: 12px; font-size: 11px; color: #666;">
+                    Dashboard Config v1.2.0
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dashboard Config v1.2.0
+        
+        // v1.0.0: Firebase config comes from shared firebase-config.js
+        // (loaded via <script src="firebase-config.js"> in <head>).
+        if (!window.firebaseConfig) {
+            throw new Error("firebase-config.js failed to load. Check <script> tag order in <head>.");
+        }
+        const firebaseConfig = window.firebaseConfig;
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        const appId = firebaseConfig.appId;
+        const provider = new firebase.auth.GoogleAuthProvider();
+        
+        // Config document path
+        const configRef = db.collection('artifacts').doc(appId)
+            .collection('public').doc('data')
+            .collection('config').doc('dashboard');
+        
+        // Schedules collection path
+        const schedulesRef = db.collection('artifacts').doc(appId)
+            .collection('public').doc('data')
+            .collection('schedules');
+        
+        // Admins collection path
+        const adminsRef = db.collection('artifacts').doc(appId)
+            .collection('public').doc('data')
+            .collection('admins');
+        
+        function showStatus(elementId, message, type) {
+            const status = document.getElementById(elementId);
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+        
+        function hideStatus(elementId) {
+            document.getElementById(elementId).className = 'status';
+        }
+        
+        async function signIn() {
+            showStatus('login-status', 'Signing in...', 'loading');
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (error) {
+                console.error('Sign in error:', error);
+                showStatus('login-status', 'Sign in failed: ' + error.message, 'error');
+            }
+        }
+        
+        async function signOut() {
+            await auth.signOut();
+        }
+        
+        async function checkIfAdmin(uid) {
+            try {
+                const doc = await adminsRef.doc(uid).get();
+                return doc.exists;
+            } catch (error) {
+                console.error('Admin check error:', error);
+                return false;
+            }
+        }
+        
+        async function loadSchedules() {
+            try {
+                const snapshot = await schedulesRef.get();
+                const schedules = [];
+                snapshot.forEach(doc => {
+                    schedules.push({ id: doc.id, name: doc.data().name });
+                });
+                schedules.sort((a, b) => a.name.localeCompare(b.name));
+                
+                const optionsHtml = '<option value="">(None)</option>' +
+                    schedules.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                
+                document.getElementById('s1').innerHTML = optionsHtml;
+                document.getElementById('s2').innerHTML = optionsHtml;
+                document.getElementById('s3').innerHTML = optionsHtml;
+                
+                console.log('Loaded', schedules.length, 'schedules');
+            } catch (error) {
+                console.error('Error loading schedules:', error);
+            }
+        }
+        
+        async function loadCurrentConfig() {
+            try {
+                const doc = await configRef.get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    // v1.2.0: videoFolderId is no longer used. canvaUrl + housesSheetCsvUrl are new.
+                    document.getElementById('canvaUrl').value = data.canvaUrl || '';
+                    document.getElementById('s1').value = data.s1 || '';
+                    document.getElementById('s2').value = data.s2 || '';
+                    document.getElementById('s3').value = data.s3 || '';
+                    document.getElementById('l1').value = data.l1 || '';
+                    document.getElementById('l2').value = data.l2 || '';
+                    document.getElementById('l3').value = data.l3 || '';
+                    // Backward-compat: if the old sheetID field exists in Firestore, render
+                    // the published-CSV URL synthesized from it. Next save overwrites to the
+                    // new housesSheetCsvUrl field. Old sheetID remains in the doc harmlessly
+                    // and can be removed via console after all TVs have pulled the new config.
+                    let existingSheetUrl = data.housesSheetCsvUrl || '';
+                    if (!existingSheetUrl && data.sheetID) {
+                        // Raw ID from old config — no way to reconstruct the "published-to-web"
+                        // /e/2PACX... URL from just the sheet ID, so leave blank and prompt
+                        // the user to paste the new URL. Log for debugging.
+                        console.warn('[config] Found legacy sheetID in Firestore but no housesSheetCsvUrl. ' +
+                            'Please paste the Published Sheet CSV URL to migrate.');
+                    }
+                    document.getElementById('housesSheetCsvUrl').value = existingSheetUrl;
+                }
+            } catch (error) {
+                console.error('Error loading config:', error);
+            }
+        }
+        
+        async function saveConfig() {
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            showStatus('status', 'Saving...', 'loading');
+            
+            const config = {
+                // v1.2.0: new fields replacing videoFolderId + sheetID
+                canvaUrl: document.getElementById('canvaUrl').value.trim() || null,
+                housesSheetCsvUrl: document.getElementById('housesSheetCsvUrl').value.trim() || null,
+                s1: document.getElementById('s1').value || null,
+                s2: document.getElementById('s2').value || null,
+                s3: document.getElementById('s3').value || null,
+                l1: document.getElementById('l1').value.trim() || null,
+                l2: document.getElementById('l2').value.trim() || null,
+                l3: document.getElementById('l3').value.trim() || null,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            // Remove null values — keeps Firestore doc tidy
+            Object.keys(config).forEach(key => {
+                if (config[key] === null) delete config[key];
+            });
+            
+            try {
+                await configRef.set(config, { merge: true });
+                showStatus('status', '✓ Configuration saved! All dashboards will update automatically.', 'success');
+            } catch (error) {
+                console.error('Save error:', error);
+                showStatus('status', 'Error saving: ' + error.message, 'error');
+            }
+            
+            btn.disabled = false;
+        }
+        
+        // Auth state listener
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Check if user is admin
+                const isAdmin = await checkIfAdmin(user.uid);
+                
+                if (isAdmin) {
+                    // Show config section
+                    document.getElementById('login-section').style.display = 'none';
+                    document.getElementById('config-section').style.display = 'block';
+                    
+                    // Update user info
+                    document.getElementById('user-photo').src = user.photoURL || '';
+                    document.getElementById('user-name').textContent = user.displayName || 'Admin';
+                    document.getElementById('user-email').textContent = user.email;
+                    
+                    // Load data
+                    await loadSchedules();
+                    await loadCurrentConfig();
+                } else {
+                    // Not an admin
+                    showStatus('login-status', 'You are not authorized to configure the dashboard. Please contact an administrator.', 'error');
+                    await auth.signOut();
+                }
+            } else {
+                // Show login section
+                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('config-section').style.display = 'none';
+                hideStatus('login-status');
+            }
+        });
+    </script>
+</body>
+</html>

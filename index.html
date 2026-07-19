@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+	<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ellis Web Bell 5.43.0</title>
+    <title>Ellis Web Bell 5.69.2</title>
 
     <!-- V5.51.0: PWA Support -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1d4ed8">
+    <!-- v5.69.1: Carolina Blue (was indigo-700 #1d4ed8) -->
+    <meta name="theme-color" content="#4B9CD3">
     <meta name="description" content="A real-time, synchronized school bell schedule and timer system">
     
     <!-- iOS PWA Support -->
@@ -16,8 +17,8 @@
     <meta name="apple-mobile-web-app-title" content="Web Bell">
     <link rel="apple-touch-icon" href="icon-192.png">
     
-    <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%232563EB%22><path d=%22M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z%22/></svg>">
+    <!-- Favicon (v5.69.1: fill updated from blue-600 #2563EB to Carolina #4B9CD3) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%234B9CD3%22><path d=%22M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z%22/></svg>">
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
     
@@ -42,6 +43,213 @@
 
 	<!-- Moving to stylesheet 5.06-->
     <link rel="stylesheet" href="styles.css">
+
+    <!-- V5.66.0: Theme CSS Variables & Overrides -->
+    <!-- v5.69.1: Carolina Blue palette. --theme-accent is text-safe (AA on white),
+         --theme-accent-bold is canonical Carolina for large surfaces (buttons, etc.). -->
+    <style id="theme-styles">
+        :root {
+            --theme-bg-primary: #f3f4f6;
+            --theme-bg-card: #ffffff;
+            --theme-bg-hover: #f9fafb;
+            --theme-bg-visual: #1f2937;
+            --theme-text-primary: #111827;
+            --theme-text-secondary: #4b5563;
+            --theme-text-muted: #6b7280;
+            --theme-accent: #38759E;        /* Carolina Deep, AA on white */
+            --theme-accent-bold: #4B9CD3;   /* Canonical Carolina Blue */
+            --theme-countdown: #111827;
+            --theme-border: #d1d5db;
+            --theme-border-light: #e5e7eb;
+            --theme-button-bg: #e5e7eb;
+            --theme-button-text: #374151;
+        }
+        
+        /* Apply theme to page background */
+        body {
+            background-color: var(--theme-bg-primary) !important;
+            color: var(--theme-text-primary) !important;
+        }
+        
+        /* Apply theme to cards and panels */
+        .bg-white {
+            background-color: var(--theme-bg-card) !important;
+        }
+        
+        /* Apply theme to primary text */
+        .text-gray-900, .text-gray-800, .text-gray-700 {
+            color: var(--theme-text-primary) !important;
+        }
+        
+        /* Apply theme to secondary text */
+        .text-gray-600, .text-gray-500 {
+            color: var(--theme-text-secondary) !important;
+        }
+        
+        /* Apply theme to muted text */
+        .text-gray-400 {
+            color: var(--theme-text-muted) !important;
+        }
+        
+        /* Apply theme to accent/title colors */
+        .text-blue-700, .text-blue-600 {
+            color: var(--theme-accent) !important;
+        }
+        
+        /* Apply theme to countdown display */
+        #countdown-display {
+            color: var(--theme-countdown) !important;
+        }
+        
+        /* Apply theme to borders */
+        .border-gray-200, .border-gray-300 {
+            border-color: var(--theme-border) !important;
+        }
+        
+        /* Light borders (bell item separators) */
+        .border-gray-100 {
+            border-color: var(--theme-border-light) !important;
+        }
+        
+        /* Theme for inputs and selects */
+        input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+        select,
+        textarea {
+            background-color: var(--theme-bg-card) !important;
+            color: var(--theme-text-primary) !important;
+            border-color: var(--theme-border) !important;
+        }
+        
+        /* Theme for bell list items and hover states */
+        .bg-gray-50 {
+            background-color: var(--theme-bg-hover) !important;
+        }
+        
+        /* V5.66.3: Fix bell item hover - use theme color instead of gray-50 */
+        .bell-item:hover,
+        .hover\:bg-gray-50:hover {
+            background-color: var(--theme-bg-hover) !important;
+        }
+        
+        /* Theme for visual cue container */
+        #visual-cue-container {
+            background-color: var(--theme-bg-visual) !important;
+        }
+        
+        /* Theme for buttons (quick bell buttons, etc.) */
+        .bg-gray-200 {
+            background-color: var(--theme-button-bg) !important;
+        }
+        .text-gray-700:not(.text-gray-700.hover\:text-gray-700) {
+            color: var(--theme-button-text) !important;
+        }
+        
+        /* =========================================================
+           v5.69.2: Tailwind blue/sky/indigo class overrides.
+           Rather than renaming 200+ class references across the HTML
+           (which would make the markup harder to read and the classes
+           less semantically meaningful), we override the Tailwind
+           utility classes here so `bg-blue-600` still reads as "primary
+           button" but the paint comes from our Carolina Blue tokens.
+           
+           Rules are grouped by role, not by class. Higher specificity
+           selectors beat the Tailwind CDN's utility classes.
+           ========================================================= */
+        
+        /* Primary buttons — solid Carolina. Classes: bg-blue-500, bg-blue-600,
+           bg-blue-700, bg-sky-500, bg-sky-600, bg-indigo-600. */
+        .bg-blue-500,
+        .bg-blue-600,
+        .bg-blue-700,
+        .bg-sky-500,
+        .bg-sky-600,
+        .bg-indigo-600 {
+            background-color: var(--theme-accent-bold) !important;
+        }
+        /* Primary button hover — darker Carolina (Carolina Deep, AA on white) */
+        .hover\:bg-blue-600:hover,
+        .hover\:bg-blue-700:hover,
+        .hover\:bg-blue-800:hover,
+        .hover\:bg-sky-600:hover,
+        .hover\:bg-sky-700:hover,
+        .hover\:bg-indigo-700:hover {
+            background-color: var(--theme-accent) !important;
+        }
+        
+        /* Text-as-accent (links, titles that use blue for emphasis). Classes:
+           text-blue-600, text-blue-700, text-sky-600, text-sky-700 */
+        .text-blue-600,
+        .text-blue-700,
+        .text-sky-600,
+        .text-sky-700 {
+            color: var(--theme-accent) !important;
+        }
+        .hover\:text-blue-600:hover,
+        .hover\:text-blue-800:hover {
+            color: var(--theme-accent-bold) !important;
+        }
+        
+        /* Borders and focus rings — use the bolder variant for visibility */
+        .border-blue-500,
+        .border-blue-600 {
+            border-color: var(--theme-accent-bold) !important;
+        }
+        .focus\:ring-blue-500:focus,
+        .focus\:ring-sky-500:focus,
+        .focus\:ring-indigo-500:focus {
+            --tw-ring-color: var(--theme-accent-bold) !important;
+        }
+        
+        /* Subtle tint backgrounds (bg-blue-50, bg-blue-100, bg-sky-100) need
+           special handling: in light mode they read as a faint blue tint; in
+           dark mode pure Tailwind blue-50 (#eff6ff) is jarring white-on-dark.
+           Solve by routing to --theme-bg-hover, which is appropriately light
+           in light mode and appropriately dark-gray in dark mode. */
+        .bg-blue-50,
+        .bg-blue-100,
+        .bg-sky-100 {
+            background-color: var(--theme-bg-hover) !important;
+        }
+        .hover\:bg-blue-200:hover,
+        .hover\:bg-sky-200:hover {
+            background-color: var(--theme-border) !important;
+        }
+        
+        /* --- BUG FIX for dark mode white-on-white ---
+           The Light/Dark theme-preset buttons (#theme-light-btn, #theme-dark-btn)
+           are intentionally theme-previews — they should look light and dark
+           respectively regardless of current theme. Override the theme
+           overrides above so the Light button stays legible in dark mode.
+           (v5.69.2, spotted by user in a screenshot.) */
+        #theme-light-btn {
+            background-color: #f3f4f6 !important; /* Tailwind gray-100 */
+            color: #1f2937 !important; /* Tailwind gray-800 */
+            border-color: var(--theme-accent-bold) !important;
+        }
+        #theme-dark-btn {
+            background-color: #374151 !important; /* Tailwind gray-700 */
+            color: #ffffff !important;
+        }
+        /* Selected state for theme buttons — handled dynamically by JS adding
+           .border-blue-500 / removing it. Ensure the selected border uses Carolina. */
+        #theme-light-btn.border-blue-500,
+        #theme-dark-btn.border-blue-500 {
+            border-color: var(--theme-accent-bold) !important;
+        }
+        /* =========================================================
+           END v5.69.2 Tailwind overrides
+           ========================================================= */
+        
+        /* Hide visual cue when disabled */
+        body.hide-visual-cue #visual-cue-wrapper {
+            display: none !important;
+        }
+        
+        /* Adjust main display grid when visual hidden */
+        body.hide-visual-cue #main-display-content {
+            grid-template-columns: 1fr !important;
+        }
+    </style>
 
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans"> <!-- Added font-sans to apply tailwind default -->
@@ -515,7 +723,7 @@
         </form>
     </div>
 
-    <!-- V5.46.0: Bulk Edit Modal -->
+    <!-- V5.47.3: Bulk Edit Modal -->
     <div id="bulk-edit-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
         <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h3 class="text-2xl font-medium mb-2">Bulk Edit Bells</h3>
@@ -932,7 +1140,7 @@
         <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
             <h3 class="text-xl font-medium mb-4">Restore Personal Schedule</h3>
             <p id="confirm-restore-text" class="text-gray-700 mb-4">Are you sure?</p>
-            <!-- V5.46.2: Add name input for restored schedule -->
+            <!-- V5.47.3: Add name input for restored schedule -->
             <div class="mb-4">
                 <label for="restore-schedule-name" class="block text-sm font-medium text-gray-700">Schedule Name</label>
                 <input type="text" id="restore-schedule-name" placeholder="Enter schedule name" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -967,9 +1175,102 @@
         </form>
     </div>
     
+    <!-- V5.63.0: Share Schedule Modal -->
+    <div id="share-schedule-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg">
+            <h3 class="text-2xl font-medium mb-4">Share Schedule</h3>
+            
+            <p class="text-gray-700 mb-4">
+                Share <strong id="share-schedule-name">...</strong> with colleagues
+            </p>
+            
+            <!-- No share code yet -->
+            <div id="share-code-generate" class="hidden">
+                <p class="text-gray-600 mb-4">Generate a share code that others can use to follow your schedule. They'll see your schedule (read-only) and can optionally duplicate it.</p>
+                <button type="button" id="generate-share-code-btn" class="w-full px-4 py-3 bg-green-600 text-white font-medium rounded-lg shadow-md hover:bg-green-700 transition-colors">
+                    Generate Share Code
+                </button>
+            </div>
+            
+            <!-- Has share code -->
+            <div id="share-code-display" class="hidden">
+                <p class="text-gray-600 mb-2">Your share code:</p>
+                <div class="flex items-center gap-2 mb-4">
+                    <input type="text" id="share-code-value" readonly class="flex-grow px-4 py-3 text-2xl font-mono font-bold text-center tracking-widest bg-gray-100 border-2 border-gray-300 rounded-lg">
+                    <button type="button" id="copy-share-code-btn" class="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700" title="Copy to clipboard">
+                        📋
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mb-4">Share this code with colleagues. They can enter it to follow your schedule.</p>
+                <button type="button" id="revoke-share-code-btn" class="w-full px-4 py-2 bg-red-100 text-red-700 font-medium rounded-lg hover:bg-red-200 transition-colors">
+                    Revoke Share Code
+                </button>
+            </div>
+            
+            <p id="share-schedule-status" class="text-blue-600 text-sm mt-4 hidden"></p>
+            
+            <div class="mt-6 flex justify-end">
+                <button type="button" id="share-schedule-close" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- V5.63.0: Enter Share Code Modal -->
+    <div id="enter-share-code-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <form id="enter-share-code-form" class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg">
+            <h3 class="text-2xl font-medium mb-4">Follow a Colleague's Schedule</h3>
+            
+            <p class="text-gray-600 mb-4">Enter the share code from a colleague to follow their schedule. You'll see their schedule and any updates they make.</p>
+            
+            <div class="mb-4">
+                <label for="enter-share-code-input" class="block text-sm font-medium text-gray-700 mb-1">Share Code</label>
+                <input type="text" id="enter-share-code-input" placeholder="ABC123" maxlength="6" 
+                       class="w-full px-4 py-3 text-2xl font-mono font-bold text-center tracking-widest uppercase border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       autocomplete="off" autocapitalize="characters">
+            </div>
+            
+            <!-- Preview area (shown after code lookup) -->
+            <div id="share-code-preview" class="hidden mb-4 p-4 bg-gray-50 rounded-lg">
+                <p class="text-sm text-gray-500">Schedule found:</p>
+                <p class="text-lg font-semibold text-gray-800" id="share-code-preview-name">...</p>
+                <p class="text-sm text-gray-500" id="share-code-preview-owner">Shared by: ...</p>
+            </div>
+            
+            <p id="enter-share-code-status" class="text-blue-600 text-sm mt-4 hidden"></p>
+            
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" id="enter-share-code-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+                <button type="submit" id="enter-share-code-submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Follow Schedule
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- V5.63.0: Manage Following Modal -->
+    <div id="manage-following-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <h3 class="text-2xl font-medium mb-4">Following</h3>
+            
+            <p class="text-gray-600 mb-4">Schedules you're following from colleagues.</p>
+            
+            <div id="following-list" class="space-y-3">
+                <!-- Populated by JS -->
+                <p class="text-gray-500 text-center py-4">You're not following any schedules yet.</p>
+            </div>
+            
+            <div class="mt-6 flex justify-between">
+                <button type="button" id="add-share-code-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    + Add Share Code
+                </button>
+                <button type="button" id="manage-following-close" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Close</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- V5.52.0: Countdown Warning Settings Modal -->
-    <div id="warning-settings-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div id="warning-settings-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center z-50 hidden p-4 overflow-y-auto">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md my-8">
             <h3 class="text-2xl font-medium mb-4">Countdown Warning Settings</h3>
             <p class="text-gray-600 mb-6">Get visual alerts as bells approach.</p>
             
@@ -1091,9 +1392,18 @@
     <!-- MODIFIED in 4.49: Widened main container from 2xl to 4xl -->
     <div class="container mx-auto max-w-4xl p-4 md:p-8">
         <header class="text-center mb-8 kiosk-hide">
-            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 5.43.0</h1>
+            <h1 class="text-4xl font-bold text-blue-700">Ellis Web Bell 5.69.2</h1>
             <p class="text-lg text-gray-600">A real-time, synchronized bell schedule</p>
-
+            <!-- V5.44.0: Clock Display Link, V5.47.3: Added Dashboard Link -->
+            <div class="mt-2 flex items-center justify-center gap-3 text-sm">
+                <a href="clock.html" target="_blank" class="text-gray-500 hover:text-blue-600 transition-colors" title="Open multi-schedule clock display for signage">
+                    🕐 Clock Display
+                </a>
+                <span class="text-gray-400">•</span>
+                <a href="dashboard.html" target="_blank" class="text-gray-500 hover:text-blue-600 transition-colors" title="Open school dashboard with video and slides">
+                    📺 School Dashboard
+                </a>
+            </div>
 
             <div class="mt-4 flex flex-col sm:flex-row justify-center items-center gap-4">
                 <!-- NEW: User display name -->
@@ -1202,6 +1512,7 @@
             <!-- 2. Sound Dropdown with Preview -->
             <!-- 5.14: Dynamically change size to factor in quick bells -->
             <!-- V5.49: Added preview button -->
+            <!-- V5.65.0: Added broadcast toggle button -->
 			<div class="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:min-w-0">
                 <!-- This select will be populated by JS to match the others -->
                 <select id="quickBellSoundSelect" class="flex-1 min-w-0 truncate px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-11">
@@ -1217,6 +1528,17 @@
                 </select>
                 <button type="button" id="preview-quick-bell-sound" class="w-11 h-11 flex-shrink-0 flex items-center justify-center text-lg bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors" aria-label="Preview">
                     ▶
+                </button>
+                <!-- V5.65.0: Broadcast toggle - syncs quick bells across all logged-in devices -->
+                <button type="button" id="quick-bell-broadcast-toggle" 
+                        class="w-11 h-11 flex-shrink-0 flex items-center justify-center bg-gray-200 text-gray-500 rounded-lg hover:bg-gray-300 transition-colors" 
+                        title="Broadcast to all devices (off)" 
+                        aria-label="Broadcast to all devices"
+                        onclick="if(typeof toggleBroadcastMode === 'function') toggleBroadcastMode();">
+                    <!-- Broadcast/signal icon -->
+                    <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z"></path>
+                    </svg>
                 </button>
             </div>
 
@@ -1253,6 +1575,18 @@
                             class="h-5 w-5 text-sky-600 rounded focus:ring-sky-500 mr-3 hidden"
                             title="Select/deselect all bells">
                      <h2 id="schedule-title" class="text-2xl font-semibold">Current Schedule</h2>
+                     <!-- v5.68.0: Inline rename button next to title. Routes to the existing
+                          rename-schedule-btn's handler in the Admin Zone via JS. Visible when a
+                          shared schedule is selected and admin-mode is on, OR when a personal
+                          schedule is selected and the user is authenticated. Hidden in kiosk mode. -->
+                     <button type="button" id="inline-rename-schedule-btn"
+                             class="ml-2 p-1 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100 kiosk-hide hidden"
+                             title="Rename this schedule" aria-label="Rename this schedule">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                             <path d="M12 20h9"></path>
+                             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                         </svg>
+                     </button>
                  </div>
                  <div class="flex-shrink-0 flex gap-2">
                      <!-- NEW in 4.49: Collapse/Expand Buttons -->
@@ -1261,7 +1595,7 @@
                      <!-- End Collapse/Expand -->
                      <button id="mute-all-list-btn" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Mute All</button>
                      <button id="unmute-all-list-btn" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Unmute All</button>
-                     <!-- V5.46.0: Bulk Edit Toggle -->
+                     <!-- V5.47.3: Bulk Edit Toggle -->
                      <button id="bulk-edit-toggle-btn" class="px-3 py-1 text-sm bg-sky-100 text-sky-700 rounded-lg hover:bg-sky-200 hidden">Bulk Edit</button>
                  </div>
             </div>
@@ -1448,6 +1782,15 @@
                 <p id="import-status" class="text-blue-600 text-sm mt-2 hidden"></p>
             </div>
 
+            <!-- tvOS Dashboard Configuration -->
+            <div class="border-t pt-6">
+                <h4 class="text-lg font-medium text-gray-800 mb-3">📺 tvOS Dashboard</h4>
+                <a href="dashboard-config.html" target="_blank" class="inline-block px-4 py-2 bg-purple-600 text-white font-medium rounded-lg shadow-md hover:bg-purple-700 transition-colors">
+                    Configure tvOS Dashboard
+                </a>
+                <p class="text-sm text-gray-500 mt-2">Set up the Apple TV dashboard display for your school.</p>
+            </div>
+
         </div>
 
         <!-- V5.49: Hidden in kiosk mode -->
@@ -1492,6 +1835,16 @@
                     </button>
                     <button type="button" id="restore-personal-schedule-btn" class="px-4 py-2 bg-yellow-500 text-black font-medium rounded-lg shadow-md hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         Load/Overwrite from Backup
+                    </button>
+                </div>
+
+                <!-- V5.63.0: ROW: Share & Follow -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t pt-4 mb-4">
+                    <button type="button" id="share-schedule-btn" class="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg shadow-md hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        🔗 Share This Schedule
+                    </button>
+                    <button type="button" id="manage-following-btn" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-md hover:bg-indigo-700 transition-colors">
+                        👥 Manage Followed Schedules
                     </button>
                 </div>
 
@@ -2096,7 +2449,7 @@
                         </div>
                         <div class="text-center">
                             <label for="custom-text-bg-color" class="block text-sm font-medium text-gray-700 mb-1">Background</label>
-                            <input type="color" id="custom-text-bg-color" value="#4338CA" class="w-16 h-10 p-0 border-none rounded-md cursor-pointer mx-auto block">
+                            <input type="color" id="custom-text-bg-color" value="#4B9CD3" class="w-16 h-10 p-0 border-none rounded-md cursor-pointer mx-auto block">
                         </div>
                     </div>
                 </div>
@@ -2535,6 +2888,110 @@
                 <!-- V5.44.8: Standardized header format -->
                 <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 cursor-pointer" title="Click to refresh file lists">My Visual Manager</h3>
 
+                <!-- V5.66.0: Theme & Display Settings -->
+                <div class="border-b pb-6">
+                    <h4 class="text-lg font-medium text-gray-800 mb-4">Theme & Display</h4>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Left: Controls -->
+                        <div class="space-y-4">
+                            <!-- Theme Preset -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Theme</label>
+                                <div class="flex gap-2">
+                                    <button type="button" id="theme-light-btn" class="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg border-2 border-blue-500 font-medium transition-colors">
+                                        ☀️ Light
+                                    </button>
+                                    <button type="button" id="theme-dark-btn" class="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg border-2 border-transparent font-medium transition-colors hover:border-gray-500">
+                                        🌙 Dark
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Custom Colors (expandable) -->
+                            <div>
+                                <button type="button" id="toggle-custom-colors-btn" class="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800">
+                                    <svg id="custom-colors-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                    Customize Colors
+                                </button>
+                                <div id="custom-colors-panel" class="hidden mt-3 space-y-3 pl-2 border-l-2 border-gray-200">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Page Background</label>
+                                            <input type="color" id="theme-color-bg" value="#f3f4f6" class="w-full h-8 rounded cursor-pointer">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Card Background</label>
+                                            <input type="color" id="theme-color-card" value="#ffffff" class="w-full h-8 rounded cursor-pointer">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Primary Text</label>
+                                            <input type="color" id="theme-color-text" value="#111827" class="w-full h-8 rounded cursor-pointer">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Secondary Text</label>
+                                            <input type="color" id="theme-color-text-secondary" value="#6b7280" class="w-full h-8 rounded cursor-pointer">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Accent (Title)</label>
+                                            <!-- v5.69.1: default Carolina Deep (AA on white) -->
+                                            <input type="color" id="theme-color-accent" value="#38759E" class="w-full h-8 rounded cursor-pointer">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Countdown</label>
+                                            <input type="color" id="theme-color-countdown" value="#111827" class="w-full h-8 rounded cursor-pointer">
+                                        </div>
+                                    </div>
+                                    <button type="button" id="reset-custom-colors-btn" class="text-xs text-gray-500 hover:text-gray-700 underline">
+                                        Reset to theme defaults
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Visual Cue Toggle -->
+                            <div class="flex items-center gap-3 pt-2">
+                                <input type="checkbox" id="toggle-visual-cue" checked class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                                <label for="toggle-visual-cue" class="text-sm font-medium text-gray-700">Show visual cue graphic</label>
+                            </div>
+                        </div>
+                        
+                        <!-- Right: Preview Panel -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Preview</label>
+                            <div id="theme-preview-panel" class="rounded-lg p-4 border-2 border-dashed border-gray-300 transition-colors" style="background-color: var(--theme-bg-primary);">
+                                <!-- Mini display preview -->
+                                <div class="rounded-lg p-3 shadow-sm mb-3 transition-colors" style="background-color: var(--theme-bg-card);">
+                                    <div class="flex items-center gap-3">
+                                        <!-- Mini visual cue placeholder -->
+                                        <div id="preview-visual-cue" class="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                            <span class="text-lg">🔔</span>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-xs transition-colors" style="color: var(--theme-text-secondary);">The time is 10:30:00 AM.</p>
+                                            <p class="text-2xl font-bold transition-colors" style="color: var(--theme-countdown);">5:00</p>
+                                            <p class="text-xs transition-colors" style="color: var(--theme-text-secondary);">until 2nd Period.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Mini bell row preview -->
+                                <div class="rounded-lg p-2 shadow-sm transition-colors" style="background-color: var(--theme-bg-card);">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <span class="text-sm font-medium transition-colors" style="color: var(--theme-text-primary);">2nd Period</span>
+                                            <span class="text-xs ml-2 transition-colors" style="color: var(--theme-text-muted);">10:35 AM</span>
+                                        </div>
+                                        <span class="text-xs px-2 py-1 rounded transition-colors" style="background-color: var(--theme-accent); color: white;">Next</span>
+                                    </div>
+                                </div>
+                                <!-- Title preview -->
+                                <p class="text-center mt-3 text-sm font-bold transition-colors" style="color: var(--theme-accent);">Ellis Web Bell</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div>
                     <h4 class="text-lg font-medium text-gray-800 mb-2">Upload New Visual File</h4>
                     <button type="button" id="show-visual-upload-modal-btn" class="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 transition-colors">
@@ -2579,6 +3036,8 @@
     </div>
 
        	<!-- 5.06 Moving JS out -->
+        <!-- v5.67.0: firebase-config.js must load BEFORE script.js so window.firebaseConfig is populated when the module initializes -->
+        <script src="firebase-config.js"></script>
 		<script type="module" src="script.js"></script>
 </body>
 </html>
@@ -2606,4 +3065,4 @@ HOW TO ADD A NEW ADMIN:
 The new admin will have admin privileges (including the "Make Public" button) the next time they refresh the app.
 -->
 
-<!-- Version 5.43.0 -->
+<!-- Version 5.69.2 -->
